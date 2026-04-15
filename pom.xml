@@ -53,7 +53,7 @@
     <jacoco-maven-plugin.version>0.8.13</jacoco-maven-plugin.version>
     <modelmapper.version>3.2.0</modelmapper.version>
     <mockito-junit-jupiter.version>5.10.0</mockito-junit-jupiter.version>
-    <bouncycastle.version>1.83</bouncycastle.version>
+    <bouncycastle.version>1.84</bouncycastle.version>
   </properties>
   <dependencyManagement>
     <dependencies>
