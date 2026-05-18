@@ -46,7 +46,7 @@
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <spring-cloud.version>2025.0.0</spring-cloud.version>
     <jackson-bom.version>2.21.1</jackson-bom.version>
-    <plugin.spotless>2.46.1</plugin.spotless>
+    <plugin.spotless>3.5.1</plugin.spotless>
     <plugin.spotless.gson>2.11.0</plugin.spotless.gson>
     <plugin.spotless.palantir>2.73.0</plugin.spotless.palantir>
     <plugin.cyclonedx>2.9.1</plugin.cyclonedx>
