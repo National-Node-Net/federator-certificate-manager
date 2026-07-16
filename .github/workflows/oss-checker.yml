@@ -41,7 +41,7 @@ jobs:
         with:
           app-id: ${{ secrets.OSPO_WORKFLOW_APP_ID }}
           private-key: ${{ secrets.OSPO_WORKFLOW_PRIVATE_KEY }}
-          owner: National-Digital-Twin
+          owner: National-Node-Net
           repositories: ospo-resources
           permission-contents: read
 
@@ -53,14 +53,14 @@ jobs:
       - name: Checkout OSPO source repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
-          repository: National-Digital-Twin/ospo-resources
+          repository: National-Node-Net/ospo-resources
           path: ospo-resources
           token: ${{ steps.ospo_token.outputs.token }}
 
       - name: Checkout archetypes source repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
-          repository: National-Digital-Twin/archetypes
+          repository: National-Node-Net/archetypes
           path: archetypes
 
       - name: Fetch Repository Metadata

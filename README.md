@@ -66,7 +66,7 @@ For detailed architecture documentation including C4 diagrams, sequence diagrams
 ### 1. Clone and Build
 
 ```sh
-git clone git@github.com:National-Digital-Twin/federator-certificate-manager.git
+git clone git@github.com:National-Node-Net/federator-certificate-manager.git
 cd federator-certificate-manager
 mvn clean package -DskipTests
 ```
@@ -314,7 +314,7 @@ INFO  KeyStoreSyncServiceImpl - Keystore is up to date, skipping write
 
 ## Local Development with Management Node
 
-This section covers running the certificate manager locally alongside the management-node and its Keycloak/Vault infrastructure. It assumes you have already completed the [management-node local setup](https://github.com/National-Digital-Twin/management-node#readme).
+This section covers running the certificate manager locally alongside the management-node and its Keycloak/Vault infrastructure. It assumes you have already completed the [management-node local setup](https://github.com/National-Node-Net/management-node#readme).
 
 ### Prerequisites
 
@@ -557,7 +557,7 @@ mvn package
 
 ### Current SBOM
 
-Download the [latest SBOM for this codebase](https://github.com/National-Digital-Twin/federator-certificate-manager/dependency-graph/sbom) to view the current list of components.
+Download the [latest SBOM for this codebase](https://github.com/National-Node-Net/federator-certificate-manager/dependency-graph/sbom) to view the current list of components.
 
 ## Contributing
 
