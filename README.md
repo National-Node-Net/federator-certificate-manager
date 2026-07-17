@@ -74,7 +74,7 @@ mvn clean package -DskipTests
 ### 2. Verify Build
 
 ```sh
-java -jar target/federator-certificate-manager-1.0.1.jar --version
+java -jar target/federator-certificate-manager-*.jar --version
 ```
 
 ### 3. Run Tests
@@ -242,10 +242,10 @@ For example, to create a `prod` profile, place an `application-prod.yml` in `src
 
 ```sh
 # Activate the profile at runtime
-java -jar target/federator-certificate-manager-1.0.1.jar --spring.profiles.active=prod
+java -jar target/federator-certificate-manager-*.jar --spring.profiles.active=prod
 
 # Or via environment variable
-SPRING_PROFILES_ACTIVE=prod java -jar target/federator-certificate-manager-1.0.1.jar
+SPRING_PROFILES_ACTIVE=prod java -jar target/federator-certificate-manager-*.jar
 ```
 
 Spring Boot resolves configuration in this order (last wins):
@@ -271,7 +271,7 @@ MANAGEMENT_NODE_BASE_URL=https://management-node.prod.example.com:8090 \
 CERT_DEST_PATH=/etc/federator/secrets/ \
 LOG_LEVEL_APP=INFO \
 LOG_LEVEL_SPRING_SECURITY=WARN \
-java -jar target/federator-certificate-manager-1.0.1.jar
+java -jar target/federator-certificate-manager-*.jar
 ```
 
 This approach works well for container orchestrators (Docker, Kubernetes) where environment variables are the standard configuration mechanism.
@@ -281,7 +281,7 @@ This approach works well for container orchestrators (Docker, Kubernetes) where 
 Point to a config file outside the JAR:
 
 ```sh
-java -jar target/federator-certificate-manager-1.0.1.jar \
+java -jar target/federator-certificate-manager-*.jar \
   --spring.config.location=file:/etc/federator/application.yml
 ```
 
@@ -292,10 +292,10 @@ java -jar target/federator-certificate-manager-1.0.1.jar \
 mvn spring-boot:run
 
 # Using the JAR directly
-java -jar target/federator-certificate-manager-1.0.1.jar
+java -jar target/federator-certificate-manager-*.jar
 
 # With a Spring profile
-java -jar target/federator-certificate-manager-1.0.1.jar --spring.profiles.active=prod
+java -jar target/federator-certificate-manager-*.jar --spring.profiles.active=prod
 ```
 
 ### Step 5: Verify Operation
@@ -552,7 +552,7 @@ This project generates a CycloneDX SBOM during the `package` phase:
 
 ```sh
 mvn package
-# Output: target/federator-certificate-manager-1.0.0.jar
+# Output: target/federator-certificate-manager-*.jar
 ```
 
 ### Current SBOM
