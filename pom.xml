@@ -9,7 +9,7 @@
   <parent>
     <groupId>org.springframework.boot</groupId>
     <artifactId>spring-boot-starter-parent</artifactId>
-    <version>3.5.12</version>
+    <version>3.5.14</version>
     <relativePath/>
   </parent>
   <groupId>uk.gov.dbt.ndtp.ia.federator.certificate-manager</groupId>
@@ -45,7 +45,7 @@
     <maven.compiler.release>21</maven.compiler.release>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <spring-cloud.version>2025.0.0</spring-cloud.version>
-    <jackson-bom.version>2.21.1</jackson-bom.version>
+    <jackson-bom.version>2.21.4</jackson-bom.version>
     <plugin.spotless>2.46.1</plugin.spotless>
     <plugin.spotless.gson>2.11.0</plugin.spotless.gson>
     <plugin.spotless.palantir>2.73.0</plugin.spotless.palantir>
@@ -53,7 +53,7 @@
     <jacoco-maven-plugin.version>0.8.13</jacoco-maven-plugin.version>
     <modelmapper.version>3.2.0</modelmapper.version>
     <mockito-junit-jupiter.version>5.10.0</mockito-junit-jupiter.version>
-    <bouncycastle.version>1.83</bouncycastle.version>
+    <bouncycastle.version>1.84</bouncycastle.version>
   </properties>
   <dependencyManagement>
     <dependencies>
