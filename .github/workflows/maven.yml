@@ -61,8 +61,8 @@ jobs:
       - name: Code Coverage
         env:
           GH_PACKAGES_PAT: ${{ secrets.GH_PACKAGES_PAT }}
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-        run: ./mvnw $MAVEN_CLI_OPTS verify -Dsonar.projectKey=National-Digital-Twin_federator-certificate-manager -Dsonar.organization=national-digital-twin -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml org.sonarsource.scanner.maven:sonar-maven-plugin:sonar
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN_N3 }}
+        run: ./mvnw $MAVEN_CLI_OPTS verify -Dsonar.projectKey=National-Node-Net_federator-certificate-manager -Dsonar.organization=national-node-net -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml org.sonarsource.scanner.maven:sonar-maven-plugin:sonar
       - name: Verify JaCoCo XML exists
         run: ls -l target/site/jacoco/jacoco.xml
   lint:
