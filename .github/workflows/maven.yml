@@ -58,10 +58,6 @@ jobs:
         env:
           GH_PACKAGES_PAT: ${{ secrets.GH_PACKAGES_PAT }}
         run: ./mvnw $MAVEN_CLI_OPTS verify
-      - name: Code Coverage
-        env:
-          GH_PACKAGES_PAT: ${{ secrets.GH_PACKAGES_PAT }}
-        run: ./mvnw $MAVEN_CLI_OPTS verify
       - name: Verify JaCoCo XML exists
         run: ls -l target/site/jacoco/jacoco.xml
       - name: SonarQube Scan
