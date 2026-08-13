@@ -58,13 +58,14 @@ jobs:
         env:
           GH_PACKAGES_PAT: ${{ secrets.GH_PACKAGES_PAT }}
         run: ./mvnw $MAVEN_CLI_OPTS verify
-      - name: Code Coverage
+      - name: Verify JaCoCo XML exists
+        run: ls -l target/site/jacoco/jacoco.xml
+      - name: SonarQube Scan
+        if: github.actor != 'dependabot[bot]'
         env:
           GH_PACKAGES_PAT: ${{ secrets.GH_PACKAGES_PAT }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN_N3 }}
-        run: ./mvnw $MAVEN_CLI_OPTS verify -Dsonar.projectKey=National-Node-Net_federator-certificate-manager -Dsonar.organization=national-node-net -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml org.sonarsource.scanner.maven:sonar-maven-plugin:sonar
-      - name: Verify JaCoCo XML exists
-        run: ls -l target/site/jacoco/jacoco.xml
+        run: ./mvnw $MAVEN_CLI_OPTS org.sonarsource.scanner.maven:sonar-maven-plugin:sonar -Dsonar.projectKey=National-Node-Net_federator-certificate-manager -Dsonar.organization=national-node-net -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml
   lint:
     permissions:
       contents: read
