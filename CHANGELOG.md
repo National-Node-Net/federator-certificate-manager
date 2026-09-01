@@ -22,7 +22,7 @@ This project follows **Semantic Versioning (SemVer)** ([semver.org](https://semv
 
 ### Changed
 
-- Pinned GitHub Actions to full commit SHAs via pinact.
+- Updated GitHub Actions to latest versions.
 
 ## [0.90.1] – 2026-07-16
 
