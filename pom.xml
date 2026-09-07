@@ -64,6 +64,17 @@
         <type>pom</type>
         <scope>import</scope>
       </dependency>
+      <!-- Override transitive httpcore5/httpcore5-h2 to patch CVE-2026-54399 / CVE-2026-54428 -->
+      <dependency>
+        <groupId>org.apache.httpcomponents.core5</groupId>
+        <artifactId>httpcore5</artifactId>
+        <version>5.4.3</version>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.httpcomponents.core5</groupId>
+        <artifactId>httpcore5-h2</artifactId>
+        <version>5.4.3</version>
+      </dependency>
     </dependencies>
   </dependencyManagement>
   <dependencies>
