@@ -50,7 +50,7 @@
     <plugin.spotless.gson>2.11.0</plugin.spotless.gson>
     <plugin.spotless.palantir>2.73.0</plugin.spotless.palantir>
     <plugin.cyclonedx>2.9.1</plugin.cyclonedx>
-    <jacoco-maven-plugin.version>0.8.13</jacoco-maven-plugin.version>
+    <jacoco-maven-plugin.version>0.8.15</jacoco-maven-plugin.version>
     <modelmapper.version>3.2.0</modelmapper.version>
     <mockito-junit-jupiter.version>5.10.0</mockito-junit-jupiter.version>
     <bouncycastle.version>1.84</bouncycastle.version>
