@@ -43,12 +43,12 @@ jobs:
       pull-requests: read
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           # Full history is recommended for accurate Sonar analysis and PR decoration
           fetch-depth: 0
       - name: Set up JDK 21
-        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5.2.0
+        uses: actions/setup-java@dd06d9cba3e5552c54d9f8ea23572deb30010f7c # v6.0.0
         with:
           java-version: '21'
           distribution: 'temurin'
@@ -58,22 +58,23 @@ jobs:
         env:
           GH_PACKAGES_PAT: ${{ secrets.GH_PACKAGES_PAT }}
         run: ./mvnw $MAVEN_CLI_OPTS verify
-      - name: Code Coverage
+      - name: Verify JaCoCo XML exists
+        run: ls -l target/site/jacoco/jacoco.xml
+      - name: SonarQube Scan
+        if: github.actor != 'dependabot[bot]'
         env:
           GH_PACKAGES_PAT: ${{ secrets.GH_PACKAGES_PAT }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN_N3 }}
-        run: ./mvnw $MAVEN_CLI_OPTS verify -Dsonar.projectKey=National-Node-Net_federator-certificate-manager -Dsonar.organization=national-node-net -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml org.sonarsource.scanner.maven:sonar-maven-plugin:sonar
-      - name: Verify JaCoCo XML exists
-        run: ls -l target/site/jacoco/jacoco.xml
+        run: ./mvnw $MAVEN_CLI_OPTS org.sonarsource.scanner.maven:sonar-maven-plugin:sonar -Dsonar.projectKey=National-Node-Net_federator-certificate-manager -Dsonar.organization=national-node-net -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml
   lint:
     permissions:
       contents: read
       pull-requests: read
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Set up JDK 21
-        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5.2.0
+        uses: actions/setup-java@dd06d9cba3e5552c54d9f8ea23572deb30010f7c # v6.0.0
         with:
           java-version: '21'
           distribution: 'temurin'
@@ -90,9 +91,9 @@ jobs:
     runs-on: ubuntu-latest
     needs: build
     steps:
-      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Set up JDK 21
-        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5.2.0
+        uses: actions/setup-java@dd06d9cba3e5552c54d9f8ea23572deb30010f7c # v6.0.0
         with:
           java-version: '21'
           distribution: 'temurin'
@@ -104,10 +105,10 @@ jobs:
         run: echo project_version=$(./mvnw $MAVEN_CLI_OPTS help:evaluate -Dexpression=project.version -q -DforceStdout) >> $GITHUB_OUTPUT
 
       - name: Checkout repo
-        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Login to ghcr.io
-        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -117,7 +118,7 @@ jobs:
         run: echo "REPO=${GITHUB_REPOSITORY,,}" >>${GITHUB_ENV}
 
       - name: Get server jar
-        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           pattern: federator-certificate-manager-*.jar
           path: target
@@ -127,7 +128,7 @@ jobs:
         run: docker build --no-cache --build-arg JAR_NAME="federator-certificate-manager-${{ steps.get_version.outputs.project_version}}" -t ghcr.io/${REPO}/federator-certificate-manager:staged -f "${{ github.workspace }}/docker/Dockerfile" --target ${{ env.DOCKER_TARGET }} .
 
       - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # v0.35.0
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           image-ref: ghcr.io/${{ env.REPO }}/federator-certificate-manager:staged
           format: table

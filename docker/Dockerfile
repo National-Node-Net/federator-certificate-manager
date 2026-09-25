@@ -22,6 +22,8 @@ RUN mvn -B clean package -DskipTests
 # Name this stage so CI can target it (matches --target federator-certificate-manager in workflows)
 FROM eclipse-temurin:21-jdk-alpine AS federator-certificate-manager
 
+# Patch OS-level packages to pick up latest security fixes (Trivy)
+RUN apk update && apk upgrade --no-cache
 
 # Create non-root user and group
 RUN addgroup -S app && adduser -S -G app -u 10001 app
