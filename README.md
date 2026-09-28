@@ -518,7 +518,7 @@ rm -f /etc/certs/keystore.jks /etc/certs/truststore.jks
 | Runtime | Java (JDK) | 21 |
 | Framework | Spring Boot | 3.5.5 |
 | Cloud | Spring Cloud (Vault) | 2025.0.0 |
-| Cryptography | Bouncy Castle | 1.83 |
+| Cryptography | Bouncy Castle | 1.86 |
 | HTTP Client | Apache HttpClient 5 | managed |
 | Caching | Caffeine | managed |
 | DTO Mapping | ModelMapper | 3.2.0 |
