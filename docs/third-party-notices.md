@@ -38,9 +38,9 @@ This document records third-party dependencies and their declared license detail
 | `org.apache.tomcat.embed:tomcat-embed-core:10.1.44` | (Apache License, Version 2.0) tomcat-embed-core | https://tomcat.apache.org/ |
 | `org.apache.tomcat.embed:tomcat-embed-el:10.1.44` | (Apache License, Version 2.0) tomcat-embed-el | https://tomcat.apache.org/ |
 | `org.apache.tomcat.embed:tomcat-embed-websocket:10.1.44` | (Apache License, Version 2.0) tomcat-embed-websocket | https://tomcat.apache.org/ |
-| `org.bouncycastle:bcpkix-jdk18on:1.83` | (Bouncy Castle Licence) Bouncy Castle PKIX, CMS, EAC, TSP, PKCS, OCSP, CMP, and CRMF APIs | https://www.bouncycastle.org/download/bouncy-castle-java/ |
-| `org.bouncycastle:bcprov-jdk18on:1.83` | (Bouncy Castle Licence) Bouncy Castle Provider | https://www.bouncycastle.org/download/bouncy-castle-java/ |
-| `org.bouncycastle:bcutil-jdk18on:1.83` | (Bouncy Castle Licence) Bouncy Castle ASN.1 Extension and Utility APIs | https://www.bouncycastle.org/download/bouncy-castle-java/ |
+| `org.bouncycastle:bcpkix-jdk18on:1.86` | (Bouncy Castle Licence) Bouncy Castle PKIX, CMS, EAC, TSP, PKCS, OCSP, CMP, and CRMF APIs | https://www.bouncycastle.org/download/bouncy-castle-java/ |
+| `org.bouncycastle:bcprov-jdk18on:1.86` | (Bouncy Castle Licence) Bouncy Castle Provider | https://www.bouncycastle.org/download/bouncy-castle-java/ |
+| `org.bouncycastle:bcutil-jdk18on:1.86` | (Bouncy Castle Licence) Bouncy Castle ASN.1 Extension and Utility APIs | https://www.bouncycastle.org/download/bouncy-castle-java/ |
 | `org.jspecify:jspecify:1.0.0` | (The Apache License, Version 2.0) JSpecify annotations | http://jspecify.org/ |
 | `org.modelmapper:modelmapper:3.2.0` | (Apache License, Version 2.0) ModelMapper | http://modelmapper.org/modelmapper |
 | `org.ow2.asm:asm:9.7.1` | (BSD-3-Clause) asm | http://asm.ow2.io/ |
@@ -86,7 +86,7 @@ This document records third-party dependencies and their declared license detail
 
 **Note:** License strings are taken from dependency POM metadata and may include dual-license options.
 
-© Crown Copyright 2026. This work has been developed by the National Digital Twin Programme and is legally attributed to the Department for Business and Trade (UK) as the governing entity.
+© Crown Copyright 2026. This work has been developed by the National Digital Twin Programme and is legally attributed to the UK's Department for Business, Innovation, Science and Trade (BIST) as the governing entity.
 
 Licensed under the Open Government Licence v3.0.
 

@@ -6,8 +6,8 @@ updates:
     registries: "*"
     schedule:
       interval: "daily"
+  # target-branch intentionally omitted: action updates target main (auto-merged) and are back-merged to develop.
   - package-ecosystem: "github-actions"
-    target-branch: "develop"
     directory: "/"
     schedule:
       interval: weekly
