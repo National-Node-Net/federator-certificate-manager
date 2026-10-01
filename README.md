@@ -518,7 +518,7 @@ rm -f /etc/certs/keystore.jks /etc/certs/truststore.jks
 | Runtime | Java (JDK) | 21 |
 | Framework | Spring Boot | 3.5.5 |
 | Cloud | Spring Cloud (Vault) | 2025.0.0 |
-| Cryptography | Bouncy Castle | 1.83 |
+| Cryptography | Bouncy Castle | 1.86 |
 | HTTP Client | Apache HttpClient 5 | managed |
 | Caching | Caffeine | managed |
 | DTO Mapping | ModelMapper | 3.2.0 |
@@ -573,4 +573,4 @@ For questions or support, check our Issues or contact the NDTP team by emailing 
 
 **Maintained by the National Digital Twin Programme (NDTP).**
 
-© Crown Copyright 2026. This work has been developed by the National Digital Twin Programme and is legally attributed to the Department for Business and Trade (UK) as the governing entity.
+© Crown Copyright 2026. This work has been developed by the National Digital Twin Programme and is legally attributed to the UK's Department for Business, Innovation, Science and Trade (BIST) as the governing entity.
