@@ -1,0 +1,1207 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="The Federator Certificate Manager is a headless Spring Boot service that automates X.509 certificate lifecycle management for federator components within the NDTP Node-Net. It handles automated certificate renewal, PKCS#12 keystore generation, and filesystem synchronisation, integrating with HashiCorp Vault (KV v2) for secret persistence, an external Management Node API for PKI operations, and an OAuth2 Identity Provider for authentication — all secured via mutual TLS (mTLS).">
+      
+      
+        <meta name="author" content="NDTP">
+      
+      
+        <link rel="canonical" href="https://docs.ndtp.co.uk/dependabot-auto-merge/architecture/">
+      
+      
+        <link rel="prev" href="..">
+      
+      
+        <link rel="next" href="../certificate-lifecycle/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/android-chrome-512x512-1-150x150.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>Architecture Overview - Federator Certificate Manager</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../stylesheets/extra.css">
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="custom" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#architecture-overview" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+      </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="Federator Certificate Manager" class="md-header__button md-logo" aria-label="Federator Certificate Manager" data-md-component="logo">
+      
+  <img src="../assets/light-page_header_logo.png" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Federator Certificate Manager
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Architecture Overview
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="custom" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="custom" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+          <a href="javascript:void(0)" class="md-search__icon md-icon" title="Share" aria-label="Share" data-clipboard data-clipboard-text="" data-md-component="search-share" tabindex="-1">
+            
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9a3 3 0 0 0-3 3 3 3 0 0 0 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.15c-.05.21-.08.43-.08.66 0 1.61 1.31 2.91 2.92 2.91s2.92-1.3 2.92-2.91A2.92 2.92 0 0 0 18 16.08"/></svg>
+          </a>
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="Federator Certificate Manager" class="md-nav__button md-logo" aria-label="Federator Certificate Manager" data-md-component="logo">
+      
+  <img src="../assets/light-page_header_logo.png" alt="logo">
+
+    </a>
+    Federator Certificate Manager
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture Overview
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#c4-level-1-system-context-diagram" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        C4 Level 1: System Context Diagram
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="C4 Level 1: System Context Diagram">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#narrative" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Narrative
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#c4-level-2-container-diagram" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        C4 Level 2: Container Diagram
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#c4-level-3-component-diagram" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        C4 Level 3: Component Diagram
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#deployment-topology" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Deployment Topology
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#internal-dependency-graph" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Internal Dependency Graph
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#threading-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Threading Model
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#error-handling-strategy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Error Handling Strategy
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../certificate-lifecycle/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Certificate Lifecycle Management
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../configuration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Configuration Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../security/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Security &amp; mTLS
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../third-party-notices/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Third-Party Notices
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../vault-integration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Vault Integration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Smoke tests
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Smoke tests
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../smoke-tests/one-to-one/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    One to One (Single Client with Single Server) Smoke Tests
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#c4-level-1-system-context-diagram" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        C4 Level 1: System Context Diagram
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="C4 Level 1: System Context Diagram">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#narrative" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Narrative
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#c4-level-2-container-diagram" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        C4 Level 2: Container Diagram
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#c4-level-3-component-diagram" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        C4 Level 3: Component Diagram
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#deployment-topology" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Deployment Topology
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#internal-dependency-graph" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Internal Dependency Graph
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#threading-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Threading Model
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#error-handling-strategy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Error Handling Strategy
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+                
+
+
+
+  
+
+
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="architecture-overview">Architecture Overview</h1>
+<p>This document describes the architecture of the Federator Certificate Manager using C4 model diagrams (Context, Container, Component) and explains how the service integrates with external systems.</p>
+<hr />
+<h2 id="c4-level-1-system-context-diagram">C4 Level 1: System Context Diagram</h2>
+<p>The system context shows how the Certificate Manager interacts with external actors and systems.</p>
+<pre class="mermaid"><code>C4Context
+    title System Context — Federator Certificate Manager
+
+    Person(ops, "Platform Engineer", "Configures and monitors the certificate manager")
+
+    System(certMgr, "Federator Certificate Manager", "Automates X.509 certificate lifecycle for federator components")
+
+    System_Ext(vault, "HashiCorp Vault", "KV v2 secrets engine for persisting keys, certificates, and passwords")
+    System_Ext(mngNode, "Management Node", "PKI API — provides intermediate CA and signs CSRs")
+    System_Ext(idp, "OAuth2 Identity Provider", "Issues JWT tokens via client credentials grant (e.g., Keycloak)")
+    System_Ext(fs, "Filesystem", "Destination for PKCS#12 keystores consumed by federator services")
+
+    Rel(ops, certMgr, "Deploys and configures", "application.yml / env vars")
+    Rel(certMgr, vault, "Reads/writes secrets", "Vault HTTP API (KV v2)")
+    Rel(certMgr, mngNode, "Requests intermediate CA, submits CSRs", "HTTPS + mTLS + Bearer token")
+    Rel(certMgr, idp, "Acquires access tokens", "HTTPS + mTLS, client_credentials grant")
+    Rel(certMgr, fs, "Writes keystore.p12, truststore.p12, password files", "Local I/O")
+
+    UpdateRelStyle(ops, certMgr, $offsetY="-40")
+    UpdateRelStyle(certMgr, vault, $offsetX="-80")
+    UpdateRelStyle(certMgr, mngNode, $offsetX="40")</code></pre>
+<h3 id="narrative">Narrative</h3>
+<table>
+<thead>
+<tr>
+<th>System</th>
+<th>Protocol</th>
+<th>Authentication</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>HashiCorp Vault</strong></td>
+<td>HTTP/HTTPS (Vault API)</td>
+<td>Vault token</td>
+<td>Persist and retrieve key pairs, certificates, CA chains, and passwords</td>
+</tr>
+<tr>
+<td><strong>Management Node</strong></td>
+<td>HTTPS with mTLS</td>
+<td>OAuth2 Bearer token</td>
+<td>Fetch intermediate CA certificate; sign certificate signing requests</td>
+</tr>
+<tr>
+<td><strong>OAuth2 IdP</strong></td>
+<td>HTTPS with mTLS</td>
+<td>Client credentials (client_id)</td>
+<td>Obtain JWT access tokens for Management Node API calls</td>
+</tr>
+<tr>
+<td><strong>Filesystem</strong></td>
+<td>Local I/O</td>
+<td>OS-level permissions</td>
+<td>Write PKCS#12 keystores and password files for federator consumption</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="c4-level-2-container-diagram">C4 Level 2: Container Diagram</h2>
+<p>The container diagram shows the runtime boundaries and the major deployable units.</p>
+<pre class="mermaid"><code>C4Container
+    title Container Diagram — Federator Certificate Manager
+
+    Person(ops, "Platform Engineer", "Configures and monitors")
+
+    Container_Boundary(app, "Federator Certificate Manager (JVM Process)") {
+        Container(scheduler, "Task Scheduler", "Spring @Scheduled, 2 threads", "Triggers renewal and sync jobs at configurable intervals")
+        Container(certSvc, "Certificate Manager Service", "Spring Service", "Orchestrates renewal: keygen → CSR → sign → persist")
+        Container(syncSvc, "KeyStore Sync Service", "Spring Service", "Generates PKCS#12 stores and writes to filesystem")
+        Container(pkiSvc, "PKI Service", "Bouncy Castle", "RSA key generation and PKCS#10 CSR creation")
+        Container(mngClient, "Management Node Client", "Spring RestClient + mTLS", "REST calls for intermediate CA and CSR signing")
+        Container(tokenSvc, "OAuth2 Token Service", "Spring RestClient + Caffeine", "Token acquisition and caching")
+        Container(vaultProvider, "Vault Secret Provider", "Spring Cloud Vault", "KV v2 read/write operations")
+        Container(fsSvc, "FileSystem Service", "Java NIO", "Atomic writes and content comparison")
+    }
+
+    System_Ext(vault, "HashiCorp Vault", "KV v2 secrets engine")
+    System_Ext(mngNode, "Management Node", "PKI API")
+    System_Ext(idp, "OAuth2 IdP", "Token endpoint")
+    System_Ext(fs, "Filesystem", "PKCS#12 output")
+
+    Rel(ops, scheduler, "Configures rates", "application.yml")
+    Rel(scheduler, certSvc, "run()")
+    Rel(scheduler, syncSvc, "syncKeyStoresToFilesystem()")
+    Rel(certSvc, pkiSvc, "createKeyPair(), createCsr()")
+    Rel(certSvc, mngClient, "signCertificate(), getIntermediateCertificate()")
+    Rel(certSvc, vaultProvider, "persist*()")
+    Rel(syncSvc, vaultProvider, "get*()")
+    Rel(syncSvc, fsSvc, "atomicWrite()")
+    Rel(mngClient, tokenSvc, "getToken()")
+    Rel(tokenSvc, idp, "POST /token", "mTLS + client_credentials")
+    Rel(mngClient, mngNode, "GET /intermediate, POST /csr/sign", "mTLS + Bearer")
+    Rel(vaultProvider, vault, "KV v2 read/write", "Vault token")
+    Rel(fsSvc, fs, "write keystore.p12, truststore.p12")</code></pre>
+<hr />
+<h2 id="c4-level-3-component-diagram">C4 Level 3: Component Diagram</h2>
+<p>Detailed view of all Spring-managed components, their interfaces, and dependencies.</p>
+<pre class="mermaid"><code>C4Component
+    title Component Diagram — Certificate Manager Service Layer
+
+    Container_Boundary(jobs, "Scheduled Jobs") {
+        Component(renewalJob, "CertificateRenewalJob", "@Scheduled", "Fixed delay: renewal-rate, initial delay: 10s")
+        Component(syncJob, "CertificateSyncJob", "@Scheduled", "Fixed delay: sync-rate, initial delay: 5s")
+    }
+
+    Container_Boundary(services, "Service Layer") {
+        Component(certMgrSvc, "CertificateManagerServiceImpl", "Service", "Orchestrates renewal: intermediate CA check → keygen → CSR → sign → persist")
+        Component(mngNodeSvc, "ManagementNodeServiceImpl", "Service", "REST client for Management Node API")
+        Component(keyStoreSyncSvc, "KeyStoreSyncServiceImpl", "Service", "Generates and syncs PKCS#12 to filesystem")
+    }
+
+    Container_Boundary(pki, "PKI Layer") {
+        Component(pkiSvc, "PkiService", "Service", "RSA key generation, PKCS#10 CSR creation")
+        Component(keyStoreSvc, "KeyStoreService", "Service", "PKCS#12 keystore/truststore creation")
+        Component(pemUtil, "PemUtil", "Utility", "PEM encode/decode, certificate validation, otherName SAN parsing")
+    }
+
+    Container_Boundary(infra, "Infrastructure Layer") {
+        Component(vaultProv, "VaultSecretProviderImpl", "Service", "Vault KV v2 operations via VaultTemplate")
+        Component(fsSvc, "FileSystemServiceImpl", "Service", "Atomic file writes, needs-update checks")
+        Component(tokenCache, "TokenCacheServiceImpl", "Service", "Caffeine cache with 5-min early refresh")
+        Component(oauth2Svc, "OAuth2TokenServiceImpl", "Service", "mTLS POST to IdP token endpoint")
+    }
+
+    Rel(renewalJob, certMgrSvc, "run()")
+    Rel(syncJob, certMgrSvc, "sync()")
+    Rel(certMgrSvc, pkiSvc, "createKeyPair(), createCsr()")
+    Rel(certMgrSvc, mngNodeSvc, "signCertificate(), getIntermediateCertificate()")
+    Rel(certMgrSvc, vaultProv, "persist*(), get*()")
+    Rel(certMgrSvc, keyStoreSyncSvc, "syncKeyStoresToFilesystem()")
+    Rel(keyStoreSyncSvc, vaultProv, "getKeyPair(), getCertificate(), getCaChain()")
+    Rel(keyStoreSyncSvc, keyStoreSvc, "createKeyStore(), createTrustStore()")
+    Rel(keyStoreSyncSvc, fsSvc, "atomicWrite(), needsUpdate()")
+    Rel(mngNodeSvc, tokenCache, "getToken()")
+    Rel(tokenCache, oauth2Svc, "getAccessToken()")
+    Rel(pkiSvc, pemUtil, "toPem(), parsePkcs8PrivateKey()")</code></pre>
+<hr />
+<h2 id="deployment-topology">Deployment Topology</h2>
+<pre class="mermaid"><code>graph TB
+    subgraph "Deployment Environment"
+        subgraph "Application Host"
+            CM["Federator Certificate Manager&lt;br/&gt;(JVM Process)"]
+            FS[("Filesystem&lt;br/&gt;/etc/federator/secrets/&lt;br/&gt;keystore.p12&lt;br/&gt;truststore.p12")]
+        end
+
+        subgraph "Infrastructure Services"
+            V["HashiCorp Vault&lt;br/&gt;(KV v2 Engine)"]
+            IDP["OAuth2 IdP&lt;br/&gt;(Keycloak)"]
+        end
+
+        subgraph "NDTP Services"
+            MN["Management Node&lt;br/&gt;(PKI API)"]
+            FED["Federator Service&lt;br/&gt;(consumes keystores)"]
+        end
+    end
+
+    CM -- "Vault HTTP API&lt;br/&gt;Token auth" --&gt; V
+    CM -- "HTTPS + mTLS&lt;br/&gt;Client credentials" --&gt; IDP
+    CM -- "HTTPS + mTLS&lt;br/&gt;Bearer token" --&gt; MN
+    CM -- "Atomic write&lt;br/&gt;PKCS#12 + passwords" --&gt; FS
+    FED -- "Reads&lt;br/&gt;keystore.p12 / truststore.p12" --&gt; FS</code></pre>
+<hr />
+<h2 id="internal-dependency-graph">Internal Dependency Graph</h2>
+<p>Shows the Spring bean injection dependencies between all service components.</p>
+<pre class="mermaid"><code>graph TD
+    subgraph "Scheduled Jobs"
+        RJ[CertificateRenewalJob]
+        SJ[CertificateSyncJob]
+    end
+
+    subgraph "Orchestration"
+        CMS[CertificateManagerServiceImpl]
+        KSS[KeyStoreSyncServiceImpl]
+    end
+
+    subgraph "External Communication"
+        MNS[ManagementNodeServiceImpl]
+        TCS[TokenCacheServiceImpl]
+        OTS[OAuth2TokenServiceImpl]
+    end
+
+    subgraph "PKI &amp; Cryptography"
+        PKI[PkiService]
+        KS[KeyStoreService]
+        PU[PemUtil]
+    end
+
+    subgraph "Infrastructure"
+        VSP[VaultSecretProviderImpl]
+        FSS[FileSystemServiceImpl]
+    end
+
+    subgraph "Configuration"
+        CP[CertificateProperties]
+        RC[RestClientConfig → RestClient]
+        CC[CacheConfig → CacheManager]
+    end
+
+    RJ --&gt; CMS
+    SJ --&gt; CMS
+
+    CMS --&gt; MNS
+    CMS --&gt; PKI
+    CMS --&gt; VSP
+    CMS --&gt; CP
+    CMS --&gt; KSS
+    CMS --&gt; PU
+
+    KSS --&gt; VSP
+    KSS --&gt; KS
+    KSS --&gt; FSS
+    KSS --&gt; CP
+
+    MNS --&gt; TCS
+    MNS --&gt; RC
+
+    TCS --&gt; OTS
+    TCS --&gt; CC
+
+    OTS --&gt; RC
+
+    PKI --&gt; PU</code></pre>
+<hr />
+<h2 id="threading-model">Threading Model</h2>
+<p>The application uses a <code>ThreadPoolTaskScheduler</code> with a pool size of 2, named <code>cert-mgr-*</code>:</p>
+<table>
+<thead>
+<tr>
+<th>Thread</th>
+<th>Job</th>
+<th>Default Interval</th>
+<th>Initial Delay</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>cert-mgr-1</code></td>
+<td><code>CertificateRenewalJob</code></td>
+<td>1 hour (<code>renewal-rate</code>)</td>
+<td>10 seconds</td>
+</tr>
+<tr>
+<td><code>cert-mgr-2</code></td>
+<td><code>CertificateSyncJob</code></td>
+<td>1 minute (<code>sync-rate</code>)</td>
+<td>5 seconds</td>
+</tr>
+</tbody>
+</table>
+<p>Both jobs invoke <code>CertificateManagerServiceImpl</code> methods synchronously. There is no concurrent access to shared mutable state — Vault operations and filesystem writes are serialised within each job's thread.</p>
+<hr />
+<h2 id="error-handling-strategy">Error Handling Strategy</h2>
+<p>Each integration boundary has a dedicated exception type:</p>
+<pre class="mermaid"><code>graph LR
+    subgraph "Exception Hierarchy"
+        RE[RuntimeException]
+        RE --&gt; VE[VaultException]
+        RE --&gt; MNE[ManagementNodeException]
+        RE --&gt; PE[PkiException]
+        RE --&gt; OTE[OAuth2TokenException]
+        RE --&gt; FSE[FileSystemException]
+        RE --&gt; KSE[KeyStoreCreationException]
+        RE --&gt; RCE[RestClientConfigurationException]
+    end</code></pre>
+<table>
+<thead>
+<tr>
+<th>Exception</th>
+<th>Thrown By</th>
+<th>Trigger</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>VaultException</code></td>
+<td><code>VaultSecretProviderImpl</code></td>
+<td>KV mount missing, read/write failures</td>
+</tr>
+<tr>
+<td><code>ManagementNodeException</code></td>
+<td><code>ManagementNodeServiceImpl</code></td>
+<td>API call failures, unexpected responses</td>
+</tr>
+<tr>
+<td><code>PkiException</code></td>
+<td><code>PkiService</code></td>
+<td>Key generation or CSR creation failures</td>
+</tr>
+<tr>
+<td><code>OAuth2TokenException</code></td>
+<td><code>OAuth2TokenServiceImpl</code></td>
+<td>Token endpoint failures</td>
+</tr>
+<tr>
+<td><code>FileSystemException</code></td>
+<td><code>FileSystemServiceImpl</code></td>
+<td>Filesystem I/O errors</td>
+</tr>
+<tr>
+<td><code>KeyStoreCreationException</code></td>
+<td><code>KeyStoreService</code></td>
+<td>PKCS#12 creation or verification failures</td>
+</tr>
+<tr>
+<td><code>RestClientConfigurationException</code></td>
+<td><code>RestClientConfig</code></td>
+<td>mTLS keystore loading failures</td>
+</tr>
+</tbody>
+</table>
+<p>All exceptions extend <code>RuntimeException</code> and propagate up to the scheduled job level, where they are logged. The scheduler continues to invoke the job at the next interval — no circuit-breaking or retry logic is applied at the job level.</p>
+<p>© Crown Copyright 2026. This work has been developed by the National Digital Twin Programme and is legally attributed to the UK's Department for Business, Innovation, Science and Trade (BIST) as the governing entity.</p>
+<p>Licensed under the Open Government Licence v3.0.  </p>
+
+
+
+
+
+
+
+  
+    
+  
+  
+
+
+  <aside class="md-source-file">
+    
+      
+  <span class="md-source-file__fact">
+    <span class="md-icon" title="Last update">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
+    </span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="September 29, 2026 10:03:01 UTC">September 29, 2026</span>
+  </span>
+
+    
+    
+    
+    
+  </aside>
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+    <div class="md-copyright__highlight">
+      &copy;Crown Copyright 2026. This work has been developed by the National Digital Twin Programme and is legally attributed to the UK's Department for Business, Innovation, Science and Trade (BIST) as the governing entity.  
+
+    </div>
+  
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+      <div class="md-progress" data-md-component="progress" role="progressbar"></div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["content.code.annotate", "content.code.copy", "content.code.select", "content.tooltips", "navigation.indexes", "navigation.tracking", "search.highlight", "search.share", "search.suggest", "search.share", "navigation.instant", "navigation.instant.prefetch", "navigation.instant", "navigation.instant.progress", "navigation.path", "toc.follow"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+    
+  </body>
+</html>

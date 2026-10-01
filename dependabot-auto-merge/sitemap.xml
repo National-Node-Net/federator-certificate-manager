@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+    <url>
+         <loc>https://docs.ndtp.co.uk/dependabot-auto-merge/</loc>
+         <lastmod>2026-10-01</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.ndtp.co.uk/dependabot-auto-merge/architecture/</loc>
+         <lastmod>2026-10-01</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.ndtp.co.uk/dependabot-auto-merge/certificate-lifecycle/</loc>
+         <lastmod>2026-10-01</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.ndtp.co.uk/dependabot-auto-merge/configuration/</loc>
+         <lastmod>2026-10-01</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.ndtp.co.uk/dependabot-auto-merge/security/</loc>
+         <lastmod>2026-10-01</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.ndtp.co.uk/dependabot-auto-merge/third-party-notices/</loc>
+         <lastmod>2026-10-01</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.ndtp.co.uk/dependabot-auto-merge/vault-integration/</loc>
+         <lastmod>2026-10-01</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.ndtp.co.uk/dependabot-auto-merge/smoke-tests/one-to-one/</loc>
+         <lastmod>2026-10-01</lastmod>
+    </url>
+</urlset>

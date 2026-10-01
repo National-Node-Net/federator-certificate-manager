@@ -1,0 +1,2189 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="The Federator Certificate Manager is a headless Spring Boot service that automates X.509 certificate lifecycle management for federator components within the NDTP Node-Net. It handles automated certificate renewal, PKCS#12 keystore generation, and filesystem synchronisation, integrating with HashiCorp Vault (KV v2) for secret persistence, an external Management Node API for PKI operations, and an OAuth2 Identity Provider for authentication — all secured via mutual TLS (mTLS).">
+      
+      
+        <meta name="author" content="NDTP">
+      
+      
+        <link rel="canonical" href="https://docs.ndtp.co.uk/dependabot-auto-merge/">
+      
+      
+      
+        <link rel="next" href="architecture/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="assets/android-chrome-512x512-1-150x150.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>Federator Certificate Manager</title>
+      
+    
+    
+      <link rel="stylesheet" href="assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="stylesheets/extra.css">
+    
+    <script>__md_scope=new URL(".",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="custom" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#overview" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+      </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="." title="Federator Certificate Manager" class="md-header__button md-logo" aria-label="Federator Certificate Manager" data-md-component="logo">
+      
+  <img src="assets/light-page_header_logo.png" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Federator Certificate Manager
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Home
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="custom" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="custom" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+          <a href="javascript:void(0)" class="md-search__icon md-icon" title="Share" aria-label="Share" data-clipboard data-clipboard-text="" data-md-component="search-share" tabindex="-1">
+            
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9a3 3 0 0 0-3 3 3 3 0 0 0 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.15c-.05.21-.08.43-.08.66 0 1.61 1.31 2.91 2.92 2.91s2.92-1.3 2.92-2.91A2.92 2.92 0 0 0 18 16.08"/></svg>
+          </a>
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="." title="Federator Certificate Manager" class="md-nav__button md-logo" aria-label="Federator Certificate Manager" data-md-component="logo">
+      
+  <img src="assets/light-page_header_logo.png" alt="logo">
+
+    </a>
+    Federator Certificate Manager
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="." class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Overview
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#prerequisites" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Prerequisites
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Prerequisites">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#system-requirements" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        System Requirements
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#features" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Features
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#architecture" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Architecture
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#quick-start" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Quick Start
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Quick Start">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-clone-and-build" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Clone and Build
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-verify-build" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Verify Build
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-run-tests" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Run Tests
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#4-code-formatting" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Code Formatting
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#installation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Installation
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Installation">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#step-1-provision-hashicorp-vault" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 1: Provision HashiCorp Vault
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-2-prepare-mtls-keystores" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 2: Prepare mTLS Keystores
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-3-configure-the-application" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 3: Configure the Application
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Step 3: Configure the Application">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#vault-infrastructure" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Vault &amp; Infrastructure
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mtls-client" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        mTLS Client
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#oauth2-management-node" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        OAuth2 &amp; Management Node
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#scheduling" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Scheduling
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#certificate-properties" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Certificate Properties
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#certificate-subject" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Certificate Subject
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#output-destination" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Output Destination
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#logging" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Logging
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-4-choose-a-configuration-strategy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 4: Choose a Configuration Strategy
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Step 4: Choose a Configuration Strategy">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#option-a-spring-profiles" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Option A: Spring Profiles
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#option-b-environment-variables-only" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Option B: Environment Variables Only
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#option-c-external-config-file" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Option C: External Config File
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-5-run-the-application" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 5: Run the Application
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-5-verify-operation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 5: Verify Operation
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#local-development-with-management-node" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Local Development with Management Node
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Local Development with Management Node">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#prerequisites_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Prerequisites
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#1-enable-the-vault-kv-v2-engine" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Enable the Vault KV v2 Engine
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-enable-certificate-automation-for-the-organisation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Enable Certificate Automation for the Organisation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-bootstrap-get-initial-certificate-material" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Bootstrap: Get Initial Certificate Material
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#4-configure-federator_env-for-x509-authentication" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Configure FEDERATOR_ENV for X.509 Authentication
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#5-create-application-localyml" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Create application-local.yml
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#6-run" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. Run
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="certificate-lifecycle/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Certificate Lifecycle Management
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="configuration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Configuration Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="security/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Security &amp; mTLS
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="third-party-notices/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Third-Party Notices
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="vault-integration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Vault Integration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Smoke tests
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Smoke tests
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="smoke-tests/one-to-one/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    One to One (Single Client with Single Server) Smoke Tests
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Overview
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#prerequisites" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Prerequisites
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Prerequisites">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#system-requirements" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        System Requirements
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#features" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Features
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#architecture" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Architecture
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#quick-start" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Quick Start
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Quick Start">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-clone-and-build" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Clone and Build
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-verify-build" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Verify Build
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-run-tests" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Run Tests
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#4-code-formatting" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Code Formatting
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#installation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Installation
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Installation">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#step-1-provision-hashicorp-vault" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 1: Provision HashiCorp Vault
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-2-prepare-mtls-keystores" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 2: Prepare mTLS Keystores
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-3-configure-the-application" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 3: Configure the Application
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Step 3: Configure the Application">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#vault-infrastructure" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Vault &amp; Infrastructure
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mtls-client" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        mTLS Client
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#oauth2-management-node" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        OAuth2 &amp; Management Node
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#scheduling" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Scheduling
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#certificate-properties" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Certificate Properties
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#certificate-subject" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Certificate Subject
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#output-destination" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Output Destination
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#logging" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Logging
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-4-choose-a-configuration-strategy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 4: Choose a Configuration Strategy
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Step 4: Choose a Configuration Strategy">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#option-a-spring-profiles" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Option A: Spring Profiles
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#option-b-environment-variables-only" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Option B: Environment Variables Only
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#option-c-external-config-file" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Option C: External Config File
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-5-run-the-application" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 5: Run the Application
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-5-verify-operation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 5: Verify Operation
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#local-development-with-management-node" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Local Development with Management Node
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Local Development with Management Node">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#prerequisites_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Prerequisites
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#1-enable-the-vault-kv-v2-engine" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Enable the Vault KV v2 Engine
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-enable-certificate-automation-for-the-organisation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Enable Certificate Automation for the Organisation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-bootstrap-get-initial-certificate-material" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Bootstrap: Get Initial Certificate Material
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#4-configure-federator_env-for-x509-authentication" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Configure FEDERATOR_ENV for X.509 Authentication
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#5-create-application-localyml" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Create application-local.yml
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#6-run" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. Run
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+                
+
+
+
+  
+
+
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+  <h1>Home</h1>
+
+<h2 id="overview">Overview</h2>
+<p>The Federator Certificate Manager is a non-interactive Spring Boot service that automates X.509 certificate lifecycle management for federator components within the <strong>National Digital Twin Programme (NDTP)</strong>. It operates as a headless daemon — no HTTP endpoints are exposed — running two scheduled jobs that handle certificate renewal and filesystem synchronisation.</p>
+<p>The service integrates with <strong>HashiCorp Vault</strong> (KV v2) for secret persistence, an external <strong>Management Node</strong> API for PKI operations (intermediate CA retrieval and CSR signing), and an <strong>OAuth2 Identity Provider</strong> for token-based authentication. All external HTTP communication is secured via mutual TLS (mTLS).</p>
+<hr />
+<h2 id="prerequisites">Prerequisites</h2>
+<table>
+<thead>
+<tr>
+<th>Dependency</th>
+<th>Version</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>JDK</strong></td>
+<td>21+</td>
+<td>Runtime and compilation</td>
+</tr>
+<tr>
+<td><strong>Apache Maven</strong></td>
+<td>3.9+</td>
+<td>Build tool</td>
+</tr>
+<tr>
+<td><strong>HashiCorp Vault</strong></td>
+<td>1.15+</td>
+<td>Secret storage (KV v2 engine)</td>
+</tr>
+<tr>
+<td><strong>Management Node</strong></td>
+<td>—</td>
+<td>External PKI API (intermediate CA, CSR signing)</td>
+</tr>
+<tr>
+<td><strong>OAuth2 IdP</strong></td>
+<td>—</td>
+<td>Identity Provider (e.g., Keycloak) for client credentials</td>
+</tr>
+<tr>
+<td><strong>JKS Keystores</strong></td>
+<td>—</td>
+<td>Client keystore and truststore for mTLS</td>
+</tr>
+</tbody>
+</table>
+<h3 id="system-requirements">System Requirements</h3>
+<ul>
+<li><strong>OS:</strong> Linux, macOS, or Windows with Java 21+</li>
+<li><strong>Memory:</strong> 256 MB minimum heap (512 MB recommended)</li>
+<li><strong>Disk:</strong> Writable path for PKCS#12 output files</li>
+<li><strong>Network:</strong> Outbound HTTPS to Vault, Management Node, and IdP</li>
+</ul>
+<hr />
+<h2 id="features">Features</h2>
+<ul>
+<li><strong>Automated Certificate Renewal</strong> — Monitors certificate validity against a configurable threshold and triggers renewal when approaching expiry</li>
+<li><strong>Intermediate CA Management</strong> — Automatically fetches and refreshes the intermediate CA from the Management Node before it expires</li>
+<li><strong>PKCS#12 KeyStore/TrustStore Generation</strong> — Produces <code>keystore.p12</code> and <code>truststore.p12</code> from PEM artifacts stored in Vault</li>
+<li><strong>Atomic Filesystem Writes</strong> — Uses temp-file-then-rename to prevent partial writes on crash</li>
+<li><strong>HashiCorp Vault Integration</strong> — Persists all cryptographic material (key pairs, certificates, CA chains, passwords) to Vault KV v2</li>
+<li><strong>mTLS-Secured Communication</strong> — All outbound HTTP calls use mutual TLS with configurable JKS keystores</li>
+<li><strong>OAuth2 Client Credentials Flow</strong> — Authenticates against an IdP with Caffeine-cached tokens and automatic refresh</li>
+<li><strong>SBOM Generation</strong> — CycloneDX Maven plugin produces a Software Bill of Materials at build time</li>
+</ul>
+<hr />
+<h2 id="architecture">Architecture</h2>
+<p>For detailed architecture documentation including C4 diagrams, sequence diagrams, and component descriptions, see:</p>
+<table>
+<thead>
+<tr>
+<th>Document</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="docs/architecture.md">Architecture Overview</a></td>
+<td>C4 context, container, and component diagrams</td>
+</tr>
+<tr>
+<td><a href="docs/certificate-lifecycle.md">Certificate Lifecycle</a></td>
+<td>Renewal and sync workflows with sequence diagrams</td>
+</tr>
+<tr>
+<td><a href="docs/configuration.md">Configuration Reference</a></td>
+<td>All <code>application.yml</code> properties with descriptions</td>
+</tr>
+<tr>
+<td><a href="docs/vault-integration.md">Vault Integration</a></td>
+<td>Vault KV v2 secret paths and operations</td>
+</tr>
+<tr>
+<td><a href="docs/security.md">Security &amp; mTLS</a></td>
+<td>OAuth2 flow, mTLS setup, and token caching</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="quick-start">Quick Start</h2>
+<h3 id="1-clone-and-build">1. Clone and Build</h3>
+<div class="language-sh highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>git<span class="w"> </span>clone<span class="w"> </span>git@github.com:National-Node-Net/federator-certificate-manager.git
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="nb">cd</span><span class="w"> </span>federator-certificate-manager
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>mvn<span class="w"> </span>clean<span class="w"> </span>package<span class="w"> </span>-DskipTests
+</span></code></pre></div>
+<h3 id="2-verify-build">2. Verify Build</h3>
+<div class="language-sh highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>java<span class="w"> </span>-jar<span class="w"> </span>target/federator-certificate-manager-1.0.1.jar<span class="w"> </span>--version
+</span></code></pre></div>
+<h3 id="3-run-tests">3. Run Tests</h3>
+<div class="language-sh highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1"># All tests</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>mvn<span class="w"> </span><span class="nb">test</span>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="c1"># Specific test class</span>
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>mvn<span class="w"> </span><span class="nb">test</span><span class="w"> </span>-Dtest<span class="o">=</span>CertificateManagerServiceImplTest
+</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>
+</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="c1"># With coverage report</span>
+</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>mvn<span class="w"> </span>verify
+</span></code></pre></div>
+<h3 id="4-code-formatting">4. Code Formatting</h3>
+<div class="language-sh highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="c1"># Check formatting (Palantir Java Format via Spotless)</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>mvn<span class="w"> </span>spotless:check
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="c1"># Auto-fix formatting</span>
+</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>mvn<span class="w"> </span>spotless:apply
+</span></code></pre></div>
+<hr />
+<h2 id="installation">Installation</h2>
+<blockquote>
+<p><strong>Running locally with management-node?</strong> Skip to <a href="#local-development-with-management-node">Local Development with Management Node</a> for a streamlined setup.</p>
+</blockquote>
+<h3 id="step-1-provision-hashicorp-vault">Step 1: Provision HashiCorp Vault</h3>
+<p>Enable a KV v2 secrets engine at the mount path matching your configuration:</p>
+<div class="language-sh highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>vault<span class="w"> </span>secrets<span class="w"> </span><span class="nb">enable</span><span class="w"> </span>-path<span class="o">=</span>pki-client<span class="w"> </span>kv-v2
+</span></code></pre></div>
+<p>Ensure the application's Vault token has read/write access to the configured secret path:</p>
+<div class="language-hcl highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="err">path</span><span class="w"> </span><span class="s2">"pki-client/data/node-net/client/*"</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="w">  </span><span class="na">capabilities</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"create", "read", "update", "delete", "list"</span><span class="p">]</span>
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="p">}</span>
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>
+</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="err">path</span><span class="w"> </span><span class="s2">"pki-client/metadata/node-net/client/*"</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="w">  </span><span class="na">capabilities</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"read", "list"</span><span class="p">]</span>
+</span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="p">}</span>
+</span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a>
+</span><span id="__span-5-9"><a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a><span class="err">path</span><span class="w"> </span><span class="s2">"sys/mounts"</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-5-10"><a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a><span class="w">  </span><span class="na">capabilities</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"read"</span><span class="p">]</span>
+</span><span id="__span-5-11"><a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a><span class="p">}</span>
+</span></code></pre></div>
+<h3 id="step-2-prepare-mtls-keystores">Step 2: Prepare mTLS Keystores</h3>
+<p>The service requires a JKS keystore (containing the client private key and certificate) and a JKS truststore (containing trusted CA certificates) for mTLS communication with the Management Node and IdP.</p>
+<div class="language-sh highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="c1"># Example: Create a client keystore</span>
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>keytool<span class="w"> </span>-genkeypair<span class="w"> </span>-alias<span class="w"> </span>client<span class="w"> </span>-keyalg<span class="w"> </span>RSA<span class="w"> </span>-keysize<span class="w"> </span><span class="m">2048</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="w">  </span>-keystore<span class="w"> </span>keystore.jks<span class="w"> </span>-storepass<span class="w"> </span>changeit<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="w">  </span>-dname<span class="w"> </span><span class="s2">"CN=certificate-manager,O=NDTP,C=GB"</span>
+</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>
+</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="c1"># Example: Import CA certificate into truststore</span>
+</span><span id="__span-6-7"><a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a>keytool<span class="w"> </span>-importcert<span class="w"> </span>-alias<span class="w"> </span>ca<span class="w"> </span>-file<span class="w"> </span>ca-cert.pem<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-6-8"><a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a><span class="w">  </span>-keystore<span class="w"> </span>truststore.jks<span class="w"> </span>-storepass<span class="w"> </span>changeit<span class="w"> </span>-noprompt
+</span></code></pre></div>
+<p>To simulate starting from a bootstrap certificate, run the following command to provision a certificate with a short expiry window:
+<div class="language-text highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>make bootstrap-test-certs-clean
+</span></code></pre></div></p>
+<p>If running in tandem with management node and IdP, this script will import the CA certificate to ensure trusted communication between components. The location of this certificate can be set within the <code>Makefile</code> in the <code>ROOT_CA_DIR</code> variable.</p>
+<h3 id="step-3-configure-the-application">Step 3: Configure the Application</h3>
+<p>Every property in <code>application.yml</code> is backed by an environment variable with a sensible default. You can override any value by setting the corresponding environment variable — no YAML editing required.</p>
+<p>See the <a href="docs/configuration.md">Configuration Reference</a> for full details.</p>
+<h4 id="vault-infrastructure">Vault &amp; Infrastructure</h4>
+<table>
+<thead>
+<tr>
+<th>Environment Variable</th>
+<th>Property Path</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>VAULT_URI</code></td>
+<td><code>spring.cloud.vault.uri</code></td>
+<td><code>http://localhost:8200</code></td>
+<td>Vault server URI</td>
+</tr>
+<tr>
+<td><code>VAULT_TOKEN</code></td>
+<td><code>spring.cloud.vault.token</code></td>
+<td><em>(empty)</em></td>
+<td>Vault authentication token</td>
+</tr>
+<tr>
+<td><code>VAULT_PKI_MOUNT</code></td>
+<td><code>application.vault.pki-mount</code></td>
+<td><code>pki-client</code></td>
+<td>KV v2 mount path in Vault</td>
+</tr>
+<tr>
+<td><code>VAULT_SECRET_PATH</code></td>
+<td><code>application.vault.secret-path</code></td>
+<td><code>node-net/client</code></td>
+<td>Base relative path for secrets under the mount</td>
+</tr>
+</tbody>
+</table>
+<h4 id="mtls-client">mTLS Client</h4>
+<table>
+<thead>
+<tr>
+<th>Environment Variable</th>
+<th>Property Path</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>MTLS_KEYSTORE_PATH</code></td>
+<td><code>application.client.key-store</code></td>
+<td><code>...docker/keystore.jks</code></td>
+<td>Path to JKS keystore (client private key + cert)</td>
+</tr>
+<tr>
+<td><code>MTLS_KEYSTORE_PASSWORD</code></td>
+<td><code>application.client.key-store-password</code></td>
+<td><code>changeit</code></td>
+<td>Keystore password</td>
+</tr>
+<tr>
+<td><code>MTLS_TRUSTSTORE_PATH</code></td>
+<td><code>application.client.trust-store</code></td>
+<td><code>...docker/truststore.jks</code></td>
+<td>Path to JKS truststore (trusted CAs)</td>
+</tr>
+<tr>
+<td><code>MTLS_TRUSTSTORE_PASSWORD</code></td>
+<td><code>application.client.trust-store-password</code></td>
+<td><code>changeit</code></td>
+<td>Truststore password</td>
+</tr>
+<tr>
+<td><code>MTLS_KEYSTORE_TYPE</code></td>
+<td><code>application.client.key-store-type</code></td>
+<td><code>JKS</code></td>
+<td>Keystore format (<code>JKS</code> or <code>PKCS12</code>)</td>
+</tr>
+</tbody>
+</table>
+<h4 id="oauth2-management-node">OAuth2 &amp; Management Node</h4>
+<table>
+<thead>
+<tr>
+<th>Environment Variable</th>
+<th>Property Path</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>OAUTH2_TOKEN_URI</code></td>
+<td><code>application.oauth2.token-uri</code></td>
+<td><code>https://localhost:8443/realms/mng-node/protocol/openid-connect/token</code></td>
+<td>OAuth2 token endpoint</td>
+</tr>
+<tr>
+<td><code>OAUTH2_CLIENT_ID</code></td>
+<td><code>application.oauth2.client-id</code></td>
+<td><code>MANAGEMENT_NODE_CLIENT</code></td>
+<td>OAuth2 client ID for client credentials grant</td>
+</tr>
+<tr>
+<td><code>MANAGEMENT_NODE_BASE_URL</code></td>
+<td><code>application.management-node.base-url</code></td>
+<td><code>https://localhost:8090</code></td>
+<td>Management Node API base URL</td>
+</tr>
+</tbody>
+</table>
+<h4 id="scheduling">Scheduling</h4>
+<table>
+<thead>
+<tr>
+<th>Environment Variable</th>
+<th>Property Path</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>CERT_RENEWAL_RATE</code></td>
+<td><code>application.scheduling.certificate-manager.renewal-rate</code></td>
+<td><code>3600000</code></td>
+<td>Renewal job interval in ms (default: 1 hour)</td>
+</tr>
+<tr>
+<td><code>CERT_SYNC_RATE</code></td>
+<td><code>application.scheduling.certificate-manager.sync-rate</code></td>
+<td><code>60000</code></td>
+<td>Sync job interval in ms (default: 1 minute)</td>
+</tr>
+</tbody>
+</table>
+<h4 id="certificate-properties">Certificate Properties</h4>
+<table>
+<thead>
+<tr>
+<th>Environment Variable</th>
+<th>Property Path</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>CERT_RENEWAL_THRESHOLD</code></td>
+<td><code>application.certificate.renewal-threshold-percentage</code></td>
+<td><code>10</code></td>
+<td>Percentage of validity remaining that triggers renewal</td>
+</tr>
+<tr>
+<td><code>CERT_KEY_SIZE</code></td>
+<td><code>application.certificate.key-size</code></td>
+<td><code>2048</code></td>
+<td>RSA key size in bits (<code>2048</code> or <code>4096</code>)</td>
+</tr>
+<tr>
+<td><code>CERT_INTERMEDIATE_MIN_VALID_DAYS</code></td>
+<td><code>application.certificate.intermediate.min-valid-days</code></td>
+<td><code>14</code></td>
+<td>Minimum days of CA validity before refresh</td>
+</tr>
+</tbody>
+</table>
+<h4 id="certificate-subject">Certificate Subject</h4>
+<table>
+<thead>
+<tr>
+<th>Environment Variable</th>
+<th>Property Path</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>CERT_SUBJECT_COUNTRY</code></td>
+<td><code>application.certificate.subject.country</code></td>
+<td><code>UK</code></td>
+<td>X.500 Country (C)</td>
+</tr>
+<tr>
+<td><code>CERT_SUBJECT_STATE</code></td>
+<td><code>application.certificate.subject.state</code></td>
+<td><code>South Yorkshire</code></td>
+<td>X.500 State (ST)</td>
+</tr>
+<tr>
+<td><code>CERT_SUBJECT_LOCALITY</code></td>
+<td><code>application.certificate.subject.locality</code></td>
+<td><code>Sheffield</code></td>
+<td>X.500 Locality (L)</td>
+</tr>
+<tr>
+<td><code>CERT_SUBJECT_ORG</code></td>
+<td><code>application.certificate.subject.organization</code></td>
+<td><code>Acme Digital Solutions Ltd</code></td>
+<td>X.500 Organization (O)</td>
+</tr>
+<tr>
+<td><code>CERT_SUBJECT_OU</code></td>
+<td><code>application.certificate.subject.organizational-unit</code></td>
+<td><code>Platform Engineering</code></td>
+<td>X.500 Organizational Unit (OU)</td>
+</tr>
+<tr>
+<td><code>CERT_SUBJECT_CN</code></td>
+<td><code>application.certificate.subject.common-name</code></td>
+<td><code>api.acme-digital.co.uk</code></td>
+<td>X.500 Common Name (CN)</td>
+</tr>
+<tr>
+<td><code>CERT_SUBJECT_ALT_NAMES</code></td>
+<td><code>application.certificate.subject.alt-names</code></td>
+<td><code>api.acme-digital.co.uk,api.internal.acme-digital.co.uk</code></td>
+<td>Comma-separated DNS SANs</td>
+</tr>
+</tbody>
+</table>
+<h4 id="output-destination">Output Destination</h4>
+<table>
+<thead>
+<tr>
+<th>Environment Variable</th>
+<th>Property Path</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>CERT_DEST_PATH</code></td>
+<td><code>application.certificate.destination.path</code></td>
+<td><code>/home/developer/test-secrets/</code></td>
+<td>Base directory for generated files</td>
+</tr>
+<tr>
+<td><code>CERT_DEST_KEYSTORE_FILE</code></td>
+<td><code>application.certificate.destination.keystore-file</code></td>
+<td><code>keystore.p12</code></td>
+<td>PKCS#12 keystore filename</td>
+</tr>
+<tr>
+<td><code>CERT_DEST_TRUSTSTORE_FILE</code></td>
+<td><code>application.certificate.destination.truststore-file</code></td>
+<td><code>truststore.p12</code></td>
+<td>PKCS#12 truststore filename</td>
+</tr>
+<tr>
+<td><code>CERT_DEST_KEYSTORE_PASSWORD_FILE</code></td>
+<td><code>application.certificate.destination.keystore-password-file</code></td>
+<td><code>keystore.password</code></td>
+<td>Keystore password filename</td>
+</tr>
+<tr>
+<td><code>CERT_DEST_TRUSTSTORE_PASSWORD_FILE</code></td>
+<td><code>application.certificate.destination.truststore-password-file</code></td>
+<td><code>truststore.password</code></td>
+<td>Truststore password filename</td>
+</tr>
+<tr>
+<td><code>CERT_DEST_KEYSTORE_ALIAS</code></td>
+<td><code>application.certificate.destination.keystore-alias</code></td>
+<td><code>federator</code></td>
+<td>Private key alias in the keystore</td>
+</tr>
+</tbody>
+</table>
+<h4 id="logging">Logging</h4>
+<table>
+<thead>
+<tr>
+<th>Environment Variable</th>
+<th>Property Path</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>LOG_LEVEL_SPRING_SECURITY</code></td>
+<td><code>logging.level.org.springframework.security</code></td>
+<td><code>DEBUG</code></td>
+<td>Spring Security log level</td>
+</tr>
+<tr>
+<td><code>LOG_LEVEL_APP</code></td>
+<td><code>logging.level.uk.gov.dbt.ndtp.federator.certificate.manager</code></td>
+<td><code>DEBUG</code></td>
+<td>Application log level</td>
+</tr>
+</tbody>
+</table>
+<h3 id="step-4-choose-a-configuration-strategy">Step 4: Choose a Configuration Strategy</h3>
+<p>There are two approaches to configuring the application for different environments: <strong>Spring Profiles</strong> and <strong>environment variables</strong>. These can be combined.</p>
+<h4 id="option-a-spring-profiles">Option A: Spring Profiles</h4>
+<p>Create an environment-specific configuration file named <code>application-{profile}.yml</code> alongside the default <code>application.yml</code> (or in an external config directory). Properties defined in the profile file override the defaults.</p>
+<p>For example, to create a <code>prod</code> profile, place an <code>application-prod.yml</code> in <code>src/main/resources/</code> or in an external config location:</p>
+<div class="language-sh highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="c1"># Activate the profile at runtime</span>
+</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>java<span class="w"> </span>-jar<span class="w"> </span>target/federator-certificate-manager-1.0.1.jar<span class="w"> </span>--spring.profiles.active<span class="o">=</span>prod
+</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>
+</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="c1"># Or via environment variable</span>
+</span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="nv">SPRING_PROFILES_ACTIVE</span><span class="o">=</span>prod<span class="w"> </span>java<span class="w"> </span>-jar<span class="w"> </span>target/federator-certificate-manager-1.0.1.jar
+</span></code></pre></div>
+<p>Spring Boot resolves configuration in this order (last wins):
+1. <code>application.yml</code> — base defaults
+2. <code>application-{profile}.yml</code> — profile-specific overrides
+3. Environment variables — highest precedence</p>
+<p>This means a <code>prod</code> profile file only needs to contain the properties that differ from the defaults. Everything else is inherited.</p>
+<h4 id="option-b-environment-variables-only">Option B: Environment Variables Only</h4>
+<p>Pass environment variables directly — no additional YAML files needed:</p>
+<div class="language-sh highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="nv">VAULT_URI</span><span class="o">=</span>https://vault.prod.example.com:8200<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="nv">VAULT_TOKEN</span><span class="o">=</span>s.xxxxx<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="nv">MTLS_KEYSTORE_PATH</span><span class="o">=</span>/etc/certs/keystore.jks<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="nv">MTLS_KEYSTORE_PASSWORD</span><span class="o">=</span>secret<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-9-5"><a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="nv">MTLS_TRUSTSTORE_PATH</span><span class="o">=</span>/etc/certs/truststore.jks<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-9-6"><a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a><span class="nv">MTLS_TRUSTSTORE_PASSWORD</span><span class="o">=</span>secret<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-9-7"><a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a><span class="nv">OAUTH2_TOKEN_URI</span><span class="o">=</span>https://idp.prod.example.com/realms/mng-node/protocol/openid-connect/token<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-9-8"><a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a><span class="nv">MANAGEMENT_NODE_BASE_URL</span><span class="o">=</span>https://management-node.prod.example.com:8090<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-9-9"><a id="__codelineno-9-9" name="__codelineno-9-9" href="#__codelineno-9-9"></a><span class="nv">CERT_DEST_PATH</span><span class="o">=</span>/etc/federator/secrets/<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-9-10"><a id="__codelineno-9-10" name="__codelineno-9-10" href="#__codelineno-9-10"></a><span class="nv">LOG_LEVEL_APP</span><span class="o">=</span>INFO<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-9-11"><a id="__codelineno-9-11" name="__codelineno-9-11" href="#__codelineno-9-11"></a><span class="nv">LOG_LEVEL_SPRING_SECURITY</span><span class="o">=</span>WARN<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-9-12"><a id="__codelineno-9-12" name="__codelineno-9-12" href="#__codelineno-9-12"></a>java<span class="w"> </span>-jar<span class="w"> </span>target/federator-certificate-manager-1.0.1.jar
+</span></code></pre></div>
+<p>This approach works well for container orchestrators (Docker, Kubernetes) where environment variables are the standard configuration mechanism.</p>
+<h4 id="option-c-external-config-file">Option C: External Config File</h4>
+<p>Point to a config file outside the JAR:</p>
+<div class="language-sh highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>java<span class="w"> </span>-jar<span class="w"> </span>target/federator-certificate-manager-1.0.1.jar<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="w">  </span>--spring.config.location<span class="o">=</span>file:/etc/federator/application.yml
+</span></code></pre></div>
+<h3 id="step-5-run-the-application">Step 5: Run the Application</h3>
+<div class="language-sh highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="c1"># Using Maven (development)</span>
+</span><span id="__span-11-2"><a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>mvn<span class="w"> </span>spring-boot:run
+</span><span id="__span-11-3"><a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>
+</span><span id="__span-11-4"><a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="c1"># Using the JAR directly</span>
+</span><span id="__span-11-5"><a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a>java<span class="w"> </span>-jar<span class="w"> </span>target/federator-certificate-manager-1.0.1.jar
+</span><span id="__span-11-6"><a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a>
+</span><span id="__span-11-7"><a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a><span class="c1"># With a Spring profile</span>
+</span><span id="__span-11-8"><a id="__codelineno-11-8" name="__codelineno-11-8" href="#__codelineno-11-8"></a>java<span class="w"> </span>-jar<span class="w"> </span>target/federator-certificate-manager-1.0.1.jar<span class="w"> </span>--spring.profiles.active<span class="o">=</span>prod
+</span></code></pre></div>
+<h3 id="step-5-verify-operation">Step 5: Verify Operation</h3>
+<p>Check the application logs for successful startup:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>INFO  CertificateRenewalJob - Starting certificate renewal check...
+</span><span id="__span-12-2"><a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>INFO  CertificateManagerServiceImpl - Intermediate CA is valid
+</span><span id="__span-12-3"><a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a>INFO  CertificateManagerServiceImpl - Certificate is valid. No renewal needed.
+</span><span id="__span-12-4"><a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a>INFO  CertificateSyncJob - Starting certificate sync...
+</span><span id="__span-12-5"><a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a>INFO  KeyStoreSyncServiceImpl - Keystore is up to date, skipping write
+</span></code></pre></div>
+<hr />
+<h2 id="local-development-with-management-node">Local Development with Management Node</h2>
+<p>This section covers running the certificate manager locally alongside the management-node and its Keycloak/Vault infrastructure. It assumes you have already completed the <a href="https://github.com/National-Node-Net/management-node#readme">management-node local setup</a>.</p>
+<h3 id="prerequisites_1">Prerequisites</h3>
+<ul>
+<li>Management Node is running on <code>https://localhost:8090</code></li>
+<li>Keycloak is running on <code>https://localhost:8443</code> with the <code>mng-node</code> realm configured</li>
+<li>Vault is running on <code>http://localhost:8200</code>, initialised and unsealed</li>
+<li>The management-node's Vault PKI engine is configured (see management-node README, Vault Setup section)</li>
+</ul>
+<h3 id="1-enable-the-vault-kv-v2-engine">1. Enable the Vault KV v2 Engine</h3>
+<p>The certificate manager uses a separate KV v2 engine (not the PKI engine) to store its secrets:</p>
+<div class="language-sh highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>docker<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>-e<span class="w"> </span><span class="nv">VAULT_TOKEN</span><span class="o">=</span><span class="nv">$VAULT_TOKEN</span><span class="w"> </span>vault<span class="w"> </span>vault<span class="w"> </span>secrets<span class="w"> </span><span class="nb">enable</span><span class="w"> </span>-path<span class="o">=</span>pki-client<span class="w"> </span>kv-v2
+</span></code></pre></div>
+<h3 id="2-enable-certificate-automation-for-the-organisation">2. Enable Certificate Automation for the Organisation</h3>
+<p>The sample data migration sets <code>certificate_automation_enabled = FALSE</code> for all organisations. Update the Environment Agency organisation to enable it:</p>
+<div class="language-sh highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>docker<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>-e<span class="w"> </span><span class="nv">PGPASSWORD</span><span class="o">=</span>keycloak_db_user_password<span class="w"> </span>keycloak-postgres-1<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-14-2"><a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a><span class="w">  </span>psql<span class="w"> </span>-U<span class="w"> </span>keycloak_db_user<span class="w"> </span>-d<span class="w"> </span>keycloak_db<span class="w"> </span>-c<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-14-3"><a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a><span class="w">  </span><span class="s2">"UPDATE mn.organisation SET certificate_automation_enabled = TRUE WHERE id = 1;"</span>
+</span></code></pre></div>
+<h3 id="3-bootstrap-get-initial-certificate-material">3. Bootstrap: Get Initial Certificate Material</h3>
+<p>The certificate manager needs initial certificate material in Vault before it can start. This uses the <code>management-node</code> client (which already has <code>request_bootstrap_certificate</code> from the management-node setup) to request a bootstrap certificate on behalf of the Environment Agency organisation.</p>
+<p>Run from the <code>management-node/docker</code> directory:</p>
+<p><strong>a. Generate a key pair for the organisation:</strong></p>
+<div class="language-sh highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>openssl<span class="w"> </span>genrsa<span class="w"> </span>-out<span class="w"> </span>env.key<span class="w"> </span><span class="m">2048</span>
+</span><span id="__span-15-2"><a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a>openssl<span class="w"> </span>req<span class="w"> </span>-new<span class="w"> </span>-key<span class="w"> </span>env.key<span class="w"> </span>-out<span class="w"> </span>env.csr<span class="w"> </span>-subj<span class="w"> </span><span class="s2">"/CN=api.env.gov.uk/O=Environment Agency/C=UK"</span>
+</span></code></pre></div>
+<p><strong>b. Get a token and request the bootstrap certificate:</strong></p>
+<div class="language-sh highlight"><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="nv">TOKEN</span><span class="o">=</span><span class="k">$(</span>curl<span class="w"> </span>-sk<span class="w"> </span>--cert<span class="w"> </span>client.crt<span class="w"> </span>--key<span class="w"> </span>client.key<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-16-2"><a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a><span class="w">  </span>-d<span class="w"> </span><span class="s2">"grant_type=client_credentials&amp;client_id=management-node"</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-16-3"><a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a><span class="w">  </span>-d<span class="w"> </span><span class="s2">"client_secret=</span><span class="si">${</span><span class="nv">KEYCLOAK_CLIENT_SECRET</span><span class="si">}</span><span class="s2">"</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-16-4"><a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a><span class="w">  </span><span class="s2">"https://localhost:8443/realms/mng-node/protocol/openid-connect/token"</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>jq<span class="w"> </span>-r<span class="w"> </span>.access_token<span class="k">)</span>
+</span><span id="__span-16-5"><a id="__codelineno-16-5" name="__codelineno-16-5" href="#__codelineno-16-5"></a>
+</span><span id="__span-16-6"><a id="__codelineno-16-6" name="__codelineno-16-6" href="#__codelineno-16-6"></a>curl<span class="w"> </span>-sk<span class="w"> </span>--cert<span class="w"> </span>client.crt<span class="w"> </span>--key<span class="w"> </span>client.key<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-16-7"><a id="__codelineno-16-7" name="__codelineno-16-7" href="#__codelineno-16-7"></a><span class="w">  </span>-H<span class="w"> </span><span class="s2">"Authorization: Bearer </span><span class="nv">$TOKEN</span><span class="s2">"</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-16-8"><a id="__codelineno-16-8" name="__codelineno-16-8" href="#__codelineno-16-8"></a><span class="w">  </span>-H<span class="w"> </span><span class="s2">"Content-Type: application/json"</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-16-9"><a id="__codelineno-16-9" name="__codelineno-16-9" href="#__codelineno-16-9"></a><span class="w">  </span>-d<span class="w"> </span><span class="s2">"</span><span class="k">$(</span>jq<span class="w"> </span>-n<span class="w"> </span>--arg<span class="w"> </span>csr<span class="w"> </span><span class="s2">"</span><span class="k">$(</span>cat<span class="w"> </span>env.csr<span class="k">)</span><span class="s2">"</span><span class="w"> </span><span class="s1">'{organisationId: 1, csr: $csr}'</span><span class="k">)</span><span class="s2">"</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-16-10"><a id="__codelineno-16-10" name="__codelineno-16-10" href="#__codelineno-16-10"></a><span class="w">  </span><span class="s2">"https://localhost:8090/api/v1/certificate/bootstrap"</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-16-11"><a id="__codelineno-16-11" name="__codelineno-16-11" href="#__codelineno-16-11"></a><span class="w">  </span>--output<span class="w"> </span>bootstrap_bundle.zip
+</span><span id="__span-16-12"><a id="__codelineno-16-12" name="__codelineno-16-12" href="#__codelineno-16-12"></a>
+</span><span id="__span-16-13"><a id="__codelineno-16-13" name="__codelineno-16-13" href="#__codelineno-16-13"></a>unzip<span class="w"> </span>-o<span class="w"> </span>bootstrap_bundle.zip
+</span></code></pre></div>
+<p>This produces <code>certificate.pem</code> and <code>ca-chain.pem</code>.</p>
+<p><strong>c. Deploy the bootstrap material to Vault:</strong></p>
+<div class="language-sh highlight"><pre><span></span><code><span id="__span-17-1"><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a>docker<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>-e<span class="w"> </span><span class="nv">VAULT_TOKEN</span><span class="o">=</span><span class="nv">$VAULT_TOKEN</span><span class="w"> </span>vault<span class="w"> </span>vault<span class="w"> </span>kv<span class="w"> </span>put<span class="w"> </span>pki-client/node-net/client/keypair<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-17-2"><a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a><span class="w">  </span><span class="nv">privateKey</span><span class="o">=</span><span class="s2">"</span><span class="k">$(</span>cat<span class="w"> </span>env.key<span class="k">)</span><span class="s2">"</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-17-3"><a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a><span class="w">  </span><span class="nv">publicKey</span><span class="o">=</span><span class="s2">"</span><span class="k">$(</span>openssl<span class="w"> </span>rsa<span class="w"> </span>-in<span class="w"> </span>env.key<span class="w"> </span>-pubout<span class="w"> </span><span class="m">2</span>&gt;/dev/null<span class="k">)</span><span class="s2">"</span>
+</span><span id="__span-17-4"><a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a>
+</span><span id="__span-17-5"><a id="__codelineno-17-5" name="__codelineno-17-5" href="#__codelineno-17-5"></a>docker<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>-e<span class="w"> </span><span class="nv">VAULT_TOKEN</span><span class="o">=</span><span class="nv">$VAULT_TOKEN</span><span class="w"> </span>vault<span class="w"> </span>vault<span class="w"> </span>kv<span class="w"> </span>put<span class="w"> </span>pki-client/node-net/client/certificate<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-17-6"><a id="__codelineno-17-6" name="__codelineno-17-6" href="#__codelineno-17-6"></a><span class="w">  </span><span class="nv">certificate</span><span class="o">=</span><span class="s2">"</span><span class="k">$(</span>cat<span class="w"> </span>certificate.pem<span class="k">)</span><span class="s2">"</span>
+</span><span id="__span-17-7"><a id="__codelineno-17-7" name="__codelineno-17-7" href="#__codelineno-17-7"></a>
+</span><span id="__span-17-8"><a id="__codelineno-17-8" name="__codelineno-17-8" href="#__codelineno-17-8"></a>docker<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>-e<span class="w"> </span><span class="nv">VAULT_TOKEN</span><span class="o">=</span><span class="nv">$VAULT_TOKEN</span><span class="w"> </span>vault<span class="w"> </span>vault<span class="w"> </span>kv<span class="w"> </span>put<span class="w"> </span>pki-client/node-net/client/ca-chain<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-17-9"><a id="__codelineno-17-9" name="__codelineno-17-9" href="#__codelineno-17-9"></a><span class="w">  </span><span class="nv">chain</span><span class="o">=</span><span class="s2">"</span><span class="k">$(</span>cat<span class="w"> </span>ca-chain.pem<span class="k">)</span><span class="s2">"</span>
+</span></code></pre></div>
+<h3 id="4-configure-federator_env-for-x509-authentication">4. Configure FEDERATOR_ENV for X.509 Authentication</h3>
+<p>The cert-manager authenticates with Keycloak using its mTLS client certificate, not a client secret. Update the <code>FEDERATOR_ENV</code> client in the Keycloak admin console:</p>
+<ol>
+<li>Navigate to <strong>mng-node realm</strong> → <strong>Clients</strong> → <strong>FEDERATOR_ENV</strong></li>
+<li>Go to the <strong>Credentials</strong> tab</li>
+<li>Change <strong>Client Authenticator</strong> to <code>X509 Certificate</code></li>
+<li>Set <strong>Subject DN</strong> to <code>CN=api.env.gov.uk</code></li>
+<li>Save</li>
+</ol>
+<p>Then add the certificate roles:</p>
+<ol>
+<li>Go to the <strong>Service accounts roles</strong> tab</li>
+<li>Click <strong>Assign role</strong> → filter by <strong>management-node</strong> client</li>
+<li>Add: <code>create_keys</code>, <code>sign_certificate</code>, and <code>access_public_certificates</code></li>
+</ol>
+<blockquote>
+<p><strong>Note:</strong> The cert-manager must authenticate as <code>FEDERATOR_ENV</code> because the management-node maps the JWT's client ID to an organisation via the Producer/Consumer <code>idpClientId</code> field. A separate client ID would not resolve to any organisation. In production, each organisation's cert-manager would authenticate as that organisation's client.</p>
+</blockquote>
+<h3 id="5-create-application-localyml">5. Create <code>application-local.yml</code></h3>
+<p>Create <code>src/main/resources/application-local.yml</code>:</p>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-18-1"><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a><span class="nt">spring</span><span class="p">:</span>
+</span><span id="__span-18-2"><a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a><span class="w">  </span><span class="nt">cloud</span><span class="p">:</span>
+</span><span id="__span-18-3"><a id="__codelineno-18-3" name="__codelineno-18-3" href="#__codelineno-18-3"></a><span class="w">    </span><span class="nt">vault</span><span class="p">:</span>
+</span><span id="__span-18-4"><a id="__codelineno-18-4" name="__codelineno-18-4" href="#__codelineno-18-4"></a><span class="w">      </span><span class="nt">token</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">&lt;your_vault_root_token&gt;</span>
+</span><span id="__span-18-5"><a id="__codelineno-18-5" name="__codelineno-18-5" href="#__codelineno-18-5"></a>
+</span><span id="__span-18-6"><a id="__codelineno-18-6" name="__codelineno-18-6" href="#__codelineno-18-6"></a><span class="nt">application</span><span class="p">:</span>
+</span><span id="__span-18-7"><a id="__codelineno-18-7" name="__codelineno-18-7" href="#__codelineno-18-7"></a><span class="w">  </span><span class="nt">vault</span><span class="p">:</span>
+</span><span id="__span-18-8"><a id="__codelineno-18-8" name="__codelineno-18-8" href="#__codelineno-18-8"></a><span class="w">    </span><span class="nt">secret-path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">pki-client/node-net/client</span>
+</span><span id="__span-18-9"><a id="__codelineno-18-9" name="__codelineno-18-9" href="#__codelineno-18-9"></a><span class="w">  </span><span class="nt">client</span><span class="p">:</span>
+</span><span id="__span-18-10"><a id="__codelineno-18-10" name="__codelineno-18-10" href="#__codelineno-18-10"></a><span class="w">    </span><span class="nt">key-store</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/tmp/federator-secrets/keystore.p12</span>
+</span><span id="__span-18-11"><a id="__codelineno-18-11" name="__codelineno-18-11" href="#__codelineno-18-11"></a><span class="w">    </span><span class="nt">trust-store</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/tmp/federator-secrets/truststore.p12</span>
+</span><span id="__span-18-12"><a id="__codelineno-18-12" name="__codelineno-18-12" href="#__codelineno-18-12"></a><span class="w">    </span><span class="nt">key-store-type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">PKCS12</span>
+</span><span id="__span-18-13"><a id="__codelineno-18-13" name="__codelineno-18-13" href="#__codelineno-18-13"></a><span class="w">  </span><span class="nt">oauth2</span><span class="p">:</span>
+</span><span id="__span-18-14"><a id="__codelineno-18-14" name="__codelineno-18-14" href="#__codelineno-18-14"></a><span class="w">    </span><span class="nt">client-id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">FEDERATOR_ENV</span>
+</span><span id="__span-18-15"><a id="__codelineno-18-15" name="__codelineno-18-15" href="#__codelineno-18-15"></a><span class="w">  </span><span class="nt">certificate</span><span class="p">:</span>
+</span><span id="__span-18-16"><a id="__codelineno-18-16" name="__codelineno-18-16" href="#__codelineno-18-16"></a><span class="w">    </span><span class="nt">subject</span><span class="p">:</span>
+</span><span id="__span-18-17"><a id="__codelineno-18-17" name="__codelineno-18-17" href="#__codelineno-18-17"></a><span class="w">      </span><span class="nt">common-name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">api.env.gov.uk</span>
+</span><span id="__span-18-18"><a id="__codelineno-18-18" name="__codelineno-18-18" href="#__codelineno-18-18"></a><span class="w">    </span><span class="nt">destination</span><span class="p">:</span>
+</span><span id="__span-18-19"><a id="__codelineno-18-19" name="__codelineno-18-19" href="#__codelineno-18-19"></a><span class="w">      </span><span class="nt">path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/tmp/federator-secrets/</span>
+</span></code></pre></div>
+<blockquote>
+<p><strong>Note:</strong> The <code>key-store</code> and <code>trust-store</code> point at the same destination path where the sync job writes. On startup, the sync job reads the bootstrap material from Vault and creates the initial keystores. The renewal job then uses those keystores for mTLS communication with Keycloak and the management-node. No <code>client-secret</code> is needed — the cert-manager authenticates with Keycloak using the X.509 client certificate in the keystore.</p>
+</blockquote>
+<h3 id="6-run">6. Run</h3>
+<div class="language-sh highlight"><pre><span></span><code><span id="__span-19-1"><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a>mvn<span class="w"> </span>spring-boot:run<span class="w"> </span>-Dspring-boot.run.profiles<span class="o">=</span><span class="nb">local</span>
+</span></code></pre></div>
+<p>On startup:
+1. The <strong>sync job</strong> runs first — reads the bootstrap material from Vault and writes <code>keystore.p12</code> and <code>truststore.p12</code> to the destination path
+2. The <strong>renewal job</strong> runs next — uses those keystores for mTLS, detects the bootstrap certificate (short TTL + bootstrap OID), and triggers automatic renewal</p>
+<p>If working correctly, you should see <code>Bootstrap certificate detected. Initiating immediate renewal...</code> in the logs.</p>
+<p>To observe the renewal cycle more easily during development, you can add shorter intervals to your <code>application-local.yml</code>:</p>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-20-1"><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a><span class="nt">application</span><span class="p">:</span>
+</span><span id="__span-20-2"><a id="__codelineno-20-2" name="__codelineno-20-2" href="#__codelineno-20-2"></a><span class="w">  </span><span class="nt">scheduling</span><span class="p">:</span>
+</span><span id="__span-20-3"><a id="__codelineno-20-3" name="__codelineno-20-3" href="#__codelineno-20-3"></a><span class="w">    </span><span class="nt">certificate-manager</span><span class="p">:</span>
+</span><span id="__span-20-4"><a id="__codelineno-20-4" name="__codelineno-20-4" href="#__codelineno-20-4"></a><span class="w">      </span><span class="nt">renewal-rate</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">60000</span><span class="w">    </span><span class="c1"># 1 minute</span>
+</span><span id="__span-20-5"><a id="__codelineno-20-5" name="__codelineno-20-5" href="#__codelineno-20-5"></a><span class="w">      </span><span class="nt">sync-rate</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">30000</span><span class="w">       </span><span class="c1"># 30 seconds</span>
+</span><span id="__span-20-6"><a id="__codelineno-20-6" name="__codelineno-20-6" href="#__codelineno-20-6"></a><span class="w">  </span><span class="nt">certificate</span><span class="p">:</span>
+</span><span id="__span-20-7"><a id="__codelineno-20-7" name="__codelineno-20-7" href="#__codelineno-20-7"></a><span class="w">    </span><span class="nt">renewal-threshold-percentage</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">100</span><span class="w">  </span><span class="c1"># always renew</span>
+</span></code></pre></div>
+<p>© Crown Copyright 2026. This work has been developed by the National Digital Twin Programme and is legally attributed to the UK's Department for Business, Innovation, Science and Trade (BIST) as the governing entity.</p>
+<p>Licensed under the Open Government Licence v3.0.  </p>
+
+
+
+
+
+
+
+  
+    
+  
+  
+
+
+  <aside class="md-source-file">
+    
+      
+  <span class="md-source-file__fact">
+    <span class="md-icon" title="Last update">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
+    </span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="September 29, 2026 10:03:01 UTC">September 29, 2026</span>
+  </span>
+
+    
+    
+    
+    
+  </aside>
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+    <div class="md-copyright__highlight">
+      &copy;Crown Copyright 2026. This work has been developed by the National Digital Twin Programme and is legally attributed to the UK's Department for Business, Innovation, Science and Trade (BIST) as the governing entity.  
+
+    </div>
+  
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+      <div class="md-progress" data-md-component="progress" role="progressbar"></div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": ".", "features": ["content.code.annotate", "content.code.copy", "content.code.select", "content.tooltips", "navigation.indexes", "navigation.tracking", "search.highlight", "search.share", "search.suggest", "search.share", "navigation.instant", "navigation.instant.prefetch", "navigation.instant", "navigation.instant.progress", "navigation.path", "toc.follow"], "search": "assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
+    
+    
+      <script src="assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+    
+  </body>
+</html>

@@ -5,10 +5,15 @@
     "aliases": []
   },
   {
-    "version": "0.90.x",
-    "title": "0.90.x",
+    "version": "dependabot-auto-merge",
+    "title": "dependabot-auto-merge",
     "aliases": [
       "latest"
     ]
+  },
+  {
+    "version": "0.90.x",
+    "title": "0.90.x",
+    "aliases": []
   }
 ]

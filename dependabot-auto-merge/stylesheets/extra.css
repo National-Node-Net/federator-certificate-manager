@@ -1,0 +1,134 @@
+/* Custom primary color for Material for MkDocs */
+
+/* Light (default) scheme */
+:root {
+  /* Primary brand color used for header, active nav, etc. */
+  --md-primary-fg-color: #002244;
+  /* Optional variants (used for hover/focus states) */
+  --md-primary-fg-color--light: #2e4a6f;
+  --md-primary-fg-color--dark: #00152e;
+}
+
+/* Dark (slate) scheme */
+[data-md-color-scheme="slate"] {
+  --md-primary-fg-color: #002244;
+  --md-primary-fg-color--light: #2e4a6f;
+  --md-primary-fg-color--dark: #00152e;
+}
+
+/* Increase logo size in the header */
+.md-header__button.md-logo img,
+.md-header__button.md-logo svg {
+  height: 0.8rem; /* default is ~1.8rem; increase for better visibility */
+  width: auto;
+}
+
+/* Improve link readability in dark (slate) mode */
+[data-md-color-scheme="slate"] .md-typeset a:link {
+  /* Light blue for high contrast on dark backgrounds */
+  color: #8ab4f8;
+}
+[data-md-color-scheme="slate"] .md-typeset a:visited {
+  /* Slightly desaturated/lighter to distinguish visited links */
+  color: #b3c7ff;
+}
+[data-md-color-scheme="slate"] .md-typeset a:hover,
+[data-md-color-scheme="slate"] .md-typeset a:focus {
+  color: #c4ddff;
+}
+/* Also adjust visited links in navigation (sidebar, toc) */
+[data-md-color-scheme="slate"] .md-nav__link:visited {
+  color: #b3c7ff;
+}
+
+/* Custom primary color for Material for MkDocs */
+
+/* Light (default) scheme */
+:root {
+  /* Primary brand color used for header, active nav, etc. */
+  --md-primary-fg-color: #002244;
+  /* Optional variants (used for hover/focus states) */
+  --md-primary-fg-color--light: #2e4a6f;
+  --md-primary-fg-color--dark: #00152e;
+}
+
+/* Dark (slate) scheme */
+[data-md-color-scheme="slate"] {
+  --md-primary-fg-color: #002244;
+  --md-primary-fg-color--light: #2e4a6f;
+  --md-primary-fg-color--dark: #00152e;
+}
+
+/* Increase logo size in the header */
+.md-header__button.md-logo img,
+.md-header__button.md-logo svg {
+  height: 3.6rem; /* default is ~1.8rem; increase for better visibility */
+  width: auto;
+}
+
+/* Improve link readability in dark (slate) mode */
+[data-md-color-scheme="slate"] .md-typeset a:link {
+  /* Light blue for high contrast on dark backgrounds */
+  color: #8ab4f8;
+}
+[data-md-color-scheme="slate"] .md-typeset a:visited {
+  /* Slightly desaturated/lighter to distinguish visited links */
+  color: #b3c7ff;
+}
+[data-md-color-scheme="slate"] .md-typeset a:hover,
+[data-md-color-scheme="slate"] .md-typeset a:focus {
+  color: #c4ddff;
+}
+/* Also adjust visited links in navigation (sidebar, toc) */
+[data-md-color-scheme="slate"] .md-nav__link:visited {
+  color: #b3c7ff;
+}
+
+/* Footer styling: background #00152e and white text/links */
+.md-footer,
+.md-footer__inner,
+.md-footer-meta,
+.md-footer-meta__inner {
+  background-color: #00152e !important;
+}
+
+/* Ensure all footer text is white for readability */
+.md-footer,
+.md-footer * {
+  color: #ffffff !important;
+}
+
+/* Footer links states */
+.md-footer a,
+.md-footer a:visited {
+  color: #ffffff !important;
+  text-decoration: underline;
+}
+
+.md-footer a:hover,
+.md-footer a:focus {
+  color: #ffffff !important;
+  opacity: 0.85;
+  text-decoration: underline;
+}
+
+/* Reduce header logo size for better balance */
+.md-header__button.md-logo img,
+.md-header__button.md-logo svg {
+  height: 1.6rem !important; /* smaller than the previous 3.6rem */
+  width: auto;
+}
+
+/* Emphasize active/selected links in navigation and tabs */
+/* Sidebar (primary) and Table of contents (secondary) active links */
+.md-nav__item .md-nav__link--active,
+.md-nav__item .md-nav__link[aria-current="page"],
+.md-nav__item .md-nav__link[aria-current="true"],
+.md-nav--primary .md-nav__item--active > .md-nav__link,
+.md-nav--secondary .md-nav__link--active,
+.md-nav--secondary .md-nav__link[aria-current="true"],
+/* Top navigation tabs */
+.md-tabs__link--active,
+.md-tabs__link[aria-current="page"] {
+  font-weight: 700 !important;
+}
