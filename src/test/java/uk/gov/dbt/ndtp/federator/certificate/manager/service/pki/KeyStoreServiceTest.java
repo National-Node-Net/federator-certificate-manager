@@ -9,7 +9,9 @@ package uk.gov.dbt.ndtp.federator.certificate.manager.service.pki;
 import static org.junit.jupiter.api.Assertions.*;
 
 import java.io.ByteArrayInputStream;
+import java.io.OutputStream;
 import java.math.BigInteger;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
@@ -167,6 +169,59 @@ class KeyStoreServiceTest {
         assertEquals(2, ks.size());
         assertTrue(ks.containsAlias("ca-0"));
         assertTrue(ks.containsAlias("ca-1"));
+    }
+
+    @Test
+    void createTrustStore_existingTrustStoreWithSamePassword_keepsExistingEntries() throws Exception {
+        String password = "trust-password";
+        Path trustStorePath = tempDir.resolve("truststore.p12");
+        writeTrustStoreWithEntry(trustStorePath, password, "legacy-ca");
+
+        byte[] tsBytes = keyStoreService.createTrustStore(List.of(caPem), password, trustStorePath);
+
+        KeyStore ks = KeyStore.getInstance("PKCS12");
+        ks.load(new ByteArrayInputStream(tsBytes), password.toCharArray());
+        assertEquals(2, ks.size());
+        assertTrue(ks.containsAlias("legacy-ca"));
+        assertTrue(ks.containsAlias("ca-0"));
+    }
+
+    @Test
+    void createTrustStore_existingTrustStoreWithDifferentPassword_createsNewTrustStore() throws Exception {
+        String newPassword = "new-trust-password";
+        Path trustStorePath = tempDir.resolve("truststore.p12");
+        writeTrustStoreWithEntry(trustStorePath, "old-trust-password", "legacy-ca");
+
+        byte[] tsBytes = keyStoreService.createTrustStore(List.of(caPem), newPassword, trustStorePath);
+
+        KeyStore ks = KeyStore.getInstance("PKCS12");
+        ks.load(new ByteArrayInputStream(tsBytes), newPassword.toCharArray());
+        assertEquals(1, ks.size());
+        assertTrue(ks.containsAlias("ca-0"));
+        assertFalse(ks.containsAlias("legacy-ca"));
+    }
+
+    @Test
+    void createTrustStore_corruptExistingTrustStore_createsNewTrustStore() throws Exception {
+        String password = "trust-password";
+        Path trustStorePath = tempDir.resolve("truststore.p12");
+        Files.write(trustStorePath, new byte[] {1, 2, 3});
+
+        byte[] tsBytes = keyStoreService.createTrustStore(List.of(caPem), password, trustStorePath);
+
+        KeyStore ks = KeyStore.getInstance("PKCS12");
+        ks.load(new ByteArrayInputStream(tsBytes), password.toCharArray());
+        assertEquals(1, ks.size());
+        assertTrue(ks.containsAlias("ca-0"));
+    }
+
+    private void writeTrustStoreWithEntry(Path path, String password, String alias) throws Exception {
+        KeyStore ks = KeyStore.getInstance("PKCS12");
+        ks.load(null, null);
+        ks.setCertificateEntry(alias, PemUtil.parseCertificate(caPem));
+        try (OutputStream out = Files.newOutputStream(path)) {
+            ks.store(out, password.toCharArray());
+        }
     }
 
     private X509Certificate createCert(X500Name subject, X500Name issuer, PublicKey pubKey, PrivateKey privKey)

@@ -10,6 +10,7 @@ import java.net.Socket;
 import java.security.Principal;
 import java.security.PrivateKey;
 import java.security.cert.X509Certificate;
+import java.util.Arrays;
 import javax.net.ssl.X509ExtendedKeyManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -30,21 +31,7 @@ public class LoggingKeyManager extends X509ExtendedKeyManager {
     public String chooseClientAlias(String[] keyType, Principal[] issuers, Socket socket) {
 
         String alias = delegate.chooseClientAlias(keyType, issuers, socket);
-
-        if (alias != null) {
-            X509Certificate[] chain = delegate.getCertificateChain(alias);
-
-            if (chain != null && chain.length > 0) {
-                X509Certificate cert = chain[0];
-
-                log.info(
-                        "TLS client certificate selected: alias={}, subject={}, expires={}",
-                        alias,
-                        cert.getSubjectX500Principal(),
-                        cert.getNotAfter());
-            }
-        }
-
+        logSelection(alias, keyType, issuers, "");
         return alias;
     }
 
@@ -65,7 +52,32 @@ public class LoggingKeyManager extends X509ExtendedKeyManager {
 
     @Override
     public String chooseEngineClientAlias(String[] keyType, Principal[] issuers, javax.net.ssl.SSLEngine engine) {
-        return delegate.chooseEngineClientAlias(keyType, issuers, engine);
+        String alias = delegate.chooseEngineClientAlias(keyType, issuers, engine);
+        logSelection(alias, keyType, issuers, " (engine)");
+        return alias;
+    }
+
+    private void logSelection(String alias, String[] keyType, Principal[] issuers, String source) {
+        if (alias == null) {
+            if (log.isWarnEnabled()) {
+                log.warn(
+                        "TLS client certificate NOT selected{}. KeyTypes: {}, Issuers: {}",
+                        source,
+                        Arrays.toString(keyType),
+                        Arrays.toString(issuers));
+            }
+            return;
+        }
+        X509Certificate[] chain = delegate.getCertificateChain(alias);
+        if (chain != null && chain.length > 0) {
+            X509Certificate cert = chain[0];
+            log.info(
+                    "TLS client certificate selected{}: alias={}, subject={}, expires={}",
+                    source,
+                    alias,
+                    cert.getSubjectX500Principal(),
+                    cert.getNotAfter());
+        }
     }
 
     @Override

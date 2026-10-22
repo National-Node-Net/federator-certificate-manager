@@ -7,11 +7,12 @@
 package uk.gov.dbt.ndtp.federator.certificate.manager.service;
 
 /**
- * Service for synchronizing keystores and truststores to the file system.
+ * Service for synchronizing keystores and truststores to the configured destinations.
  */
 public interface KeyStoreSyncService {
     /**
-     * Synchronizes keystores and truststores to the file system based on configuration and Vault secrets.
+     * Synchronizes keystores and truststores, built from the Vault certificate material, to each configured
+     * destination (filesystem and/or a Vault KV v2 secret).
      */
-    void syncKeyStoresToFilesystem();
+    void syncKeyStores();
 }

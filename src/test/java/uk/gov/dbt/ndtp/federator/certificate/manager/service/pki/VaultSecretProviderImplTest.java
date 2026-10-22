@@ -13,9 +13,11 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyMap;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -458,5 +460,80 @@ class VaultSecretProviderImplTest {
         Map<String, Object> result = vaultSecretProvider.getSecret("test-secret");
         assertNotNull(result);
         assertTrue(result.isEmpty());
+    }
+
+    // --- arbitrary KV v2 paths (destination.vault) ---
+
+    @Test
+    void persistSecretAtPath_splitsMountFromPath() {
+        VaultVersionedKeyValueOperations secretKv = mock(VaultVersionedKeyValueOperations.class);
+        when(sysOps.getMounts())
+                .thenReturn(Map.of("secret/", VaultMount.builder().type("kv").build()));
+        when(vaultTemplate.opsForVersionedKeyValue("secret")).thenReturn(secretKv);
+        Map<String, String> data = Map.of("keystore.p12", "base64");
+
+        vaultSecretProvider.persistSecretAtPath("/secret/app/federator/", data);
+
+        verify(secretKv).put("app/federator", data);
+    }
+
+    @Test
+    void persistSecretAtPath_throwsWhenMountMissing() {
+        Map<String, String> data = Map.of("k", "v");
+
+        VaultException ex = assertThrows(
+                VaultException.class, () -> vaultSecretProvider.persistSecretAtPath("/secrets/app/federator", data));
+
+        assertTrue(ex.getMessage().contains("secrets/"));
+        verify(vaultTemplate, never()).opsForVersionedKeyValue("secrets");
+    }
+
+    @Test
+    void persistSecretAtPath_wrapsWriteFailure() {
+        doThrow(new RuntimeException("boom")).when(kvOps).put(eq("app/federator"), anyMap());
+        Map<String, String> data = Map.of("k", "v");
+
+        assertThrows(
+                VaultException.class, () -> vaultSecretProvider.persistSecretAtPath("node-net/app/federator", data));
+    }
+
+    @Test
+    void persistSecretAtPath_rejectsPathWithoutSecretName() {
+        Map<String, String> data = Map.of("k", "v");
+
+        assertThrows(VaultException.class, () -> vaultSecretProvider.persistSecretAtPath("/secret/", data));
+        assertThrows(VaultException.class, () -> vaultSecretProvider.persistSecretAtPath(null, data));
+    }
+
+    @Test
+    void getSecretAtPath_returnsData() {
+        Map<String, Object> data = Map.of("keystore.password", "pw");
+        when(kvOps.get("app/federator")).thenReturn(Versioned.create(data));
+
+        assertEquals(data, vaultSecretProvider.getSecretAtPath("node-net/app/federator"));
+    }
+
+    @Test
+    void getSecretAtPath_returnsEmptyMapWhenNotFound() {
+        when(kvOps.get("app/federator")).thenReturn(null);
+
+        assertTrue(vaultSecretProvider.getSecretAtPath("node-net/app/federator").isEmpty());
+    }
+
+    @Test
+    void getSecretAtPath_wrapsReadFailure() {
+        when(kvOps.get("app/federator")).thenThrow(new RuntimeException("boom"));
+
+        assertThrows(VaultException.class, () -> vaultSecretProvider.getSecretAtPath("node-net/app/federator"));
+    }
+
+    @Test
+    void getSecretAtPath_verifiesEachMountOnce() {
+        when(kvOps.get(anyString())).thenReturn(null);
+
+        vaultSecretProvider.getSecretAtPath("node-net/app/one");
+        vaultSecretProvider.getSecretAtPath("node-net/app/two");
+
+        verify(sysOps, times(1)).getMounts();
     }
 }

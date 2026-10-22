@@ -43,11 +43,11 @@ See [Vault Integration](vault-integration.md) for the full secret path reference
 
 | Property Path | Environment Variable | Default | Required | Description |
 |---|---|---|---|---|
-| `application.client.key-store` | `MTLS_KEYSTORE_PATH` | `...docker/keystore.jks` | Yes | Filesystem path to the JKS keystore containing the client private key and certificate |
+| `application.client.key-store` | `MTLS_KEYSTORE_PATH` | `...docker/mtls-keystore.p12` | Yes | Filesystem path to the PKCS12 keystore containing the client private key and certificate |
 | `application.client.key-store-password` | `MTLS_KEYSTORE_PASSWORD` | `changeit` | Yes | Password for the client keystore |
-| `application.client.trust-store` | `MTLS_TRUSTSTORE_PATH` | `...docker/truststore.jks` | Yes | Filesystem path to the JKS truststore containing trusted CA certificates |
+| `application.client.trust-store` | `MTLS_TRUSTSTORE_PATH` | `...docker/mtls-truststore.p12` | Yes | Filesystem path to the PKCS12 truststore containing trusted CA certificates |
 | `application.client.trust-store-password` | `MTLS_TRUSTSTORE_PASSWORD` | `changeit` | Yes | Password for the truststore |
-| `application.client.key-store-type` | `MTLS_KEYSTORE_TYPE` | `JKS` | No | Keystore format (`JKS` or `PKCS12`) |
+| `application.client.key-store-type` | `MTLS_KEYSTORE_TYPE` | `PKCS12` | No | Keystore format (PKCS12) |
 
 These keystores are used for **outbound** mTLS connections to the Management Node and OAuth2 IdP. They are separate from the PKCS#12 keystores the service generates.
 
@@ -132,18 +132,48 @@ Managed by `TokenCacheServiceImpl` using Caffeine (not externalized):
 | `application.certificate.subject.common-name` | `CERT_SUBJECT_CN` | `api.acme-digital.co.uk` | X.500 Common Name (CN) — typically the primary FQDN |
 | `application.certificate.subject.alt-names` | `CERT_SUBJECT_ALT_NAMES` | `api.acme-digital.co.uk,api.internal.acme-digital.co.uk` | Comma-separated DNS Subject Alternative Names |
 
-### Destination (Output Files)
+### Destination (Output Stores)
+
+The keystore, truststore and their passwords are written to each configured destination. `destination.file` writes them to the filesystem; `destination.vault` writes them to a Vault KV v2 secret. Either, both or neither may be configured: a destination that is not provided, or whose `path` is empty, is skipped. By default only the filesystem destination is enabled.
+
+```yaml
+application:
+  certificate:
+    destination:
+      keystore-password:            # optional, shared by both destinations; generated if empty
+      truststore-password:          # optional, shared by both destinations; generated if empty
+      file:
+        path: /home/developer/test-secrets/
+        keystore-file: keystore.p12
+        truststore-file: truststore.p12
+        keystore-alias: federator
+      vault:
+        path: /secret/app/federator   # <kv-v2-mount>/<secret-path>
+        keystore-file: keystore.p12
+        truststore-file: truststore.p12
+        keystore-alias: federator
+```
 
 | Property Path | Environment Variable | Default | Description |
 |---|---|---|---|
-| `application.certificate.destination.path` | `CERT_DEST_PATH` | `/home/developer/test-secrets/` | Base directory for output files |
-| `application.certificate.destination.keystore-file` | `CERT_DEST_KEYSTORE_FILE` | `keystore.p12` | PKCS#12 keystore filename |
-| `application.certificate.destination.truststore-file` | `CERT_DEST_TRUSTSTORE_FILE` | `truststore.p12` | PKCS#12 truststore filename |
-| `application.certificate.destination.keystore-password-file` | `CERT_DEST_KEYSTORE_PASSWORD_FILE` | `keystore.password` | Plaintext file containing the keystore password |
-| `application.certificate.destination.truststore-password-file` | `CERT_DEST_TRUSTSTORE_PASSWORD_FILE` | `truststore.password` | Plaintext file containing the truststore password |
-| `application.certificate.destination.keystore-alias` | `CERT_DEST_KEYSTORE_ALIAS` | `federator` | Alias for the private key entry in the keystore |
+| `application.certificate.destination.keystore-password` | `CERT_DEST_KEYSTORE_PASSWORD` | *(empty)* | Keystore password shared by the file and vault destinations; generated if empty |
+| `application.certificate.destination.truststore-password` | `CERT_DEST_TRUSTSTORE_PASSWORD` | *(empty)* | Truststore password shared by the file and vault destinations; generated if empty |
+| `application.certificate.destination.file.path` | `CERT_DEST_PATH` | `/home/developer/test-secrets/` | Base directory for output files; empty disables the filesystem destination |
+| `application.certificate.destination.file.keystore-file` | `CERT_DEST_KEYSTORE_FILE` | `keystore.p12` | PKCS#12 keystore filename |
+| `application.certificate.destination.file.truststore-file` | `CERT_DEST_TRUSTSTORE_FILE` | `truststore.p12` | PKCS#12 truststore filename |
+| `application.certificate.destination.file.keystore-alias` | `CERT_DEST_KEYSTORE_ALIAS` | `federator` | Alias for the private key entry in the keystore |
+| `application.certificate.destination.vault.path` | `CERT_DEST_VAULT_PATH` | *(empty)* | KV v2 secret path; the first segment is the mount. Empty disables the Vault destination |
+| `application.certificate.destination.vault.keystore-file` | `CERT_DEST_VAULT_KEYSTORE_FILE` | `keystore.p12` | Attribute holding the Base64-encoded PKCS#12 keystore |
+| `application.certificate.destination.vault.truststore-file` | `CERT_DEST_VAULT_TRUSTSTORE_FILE` | `truststore.p12` | Attribute holding the Base64-encoded PKCS#12 truststore |
+| `application.certificate.destination.vault.keystore-alias` | `CERT_DEST_VAULT_KEYSTORE_ALIAS` | `federator` | Alias for the private key entry in the Vault keystore |
 
 > **Password Resolution:** If `keystore-password` or `truststore-password` is not set in the config, the service checks Vault. If not found in Vault, a cryptographically random Base64-encoded 24-byte password is generated and persisted to Vault.
+
+> **Shared passwords:** both destinations use the one `keystore-password` / `truststore-password` pair. The passwords are written as `keystore.password` and `truststore.password` — as files next to the stores for `file`, and as attributes of the secret for `vault`.
+
+> **Vault destination:** all four values are stored as attributes of the single secret at `vault.path`: the stores under the configured `keystore-file` / `truststore-file` names, the passwords under `keystore.password` / `truststore.password`, plus `createdAt` (first write) and `updatedAt` (last content change) timestamps in ISO-8601 UTC. The KV v2 mount must already exist. On each sync the stored stores are compared with the current certificate material, and a new secret version is written only when something changed — so the secret is updated on every certificate rotation. Other attributes already in the secret are preserved. The certificate manager's Vault policy needs `create`, `read` and `update` on `<mount>/data/<secret-path>`.
+
+> **Migrating from the flat layout:** the former `destination.path`, `destination.keystore-file`, etc. now live under `destination.file`. The environment variable names are unchanged. The `keystore-password-file` / `truststore-password-file` settings (and `CERT_DEST_*_PASSWORD_FILE` variables) have been removed: the password names are always `keystore.password` / `truststore.password`.
 
 ---
 

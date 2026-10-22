@@ -6,6 +6,7 @@
 
 package uk.gov.dbt.ndtp.federator.certificate.manager.service;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -17,6 +18,11 @@ import java.security.KeyPairGenerator;
 import java.security.cert.X509Certificate;
 import java.util.Date;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import org.bouncycastle.asn1.ASN1Encodable;
 import org.bouncycastle.asn1.ASN1ObjectIdentifier;
 import org.bouncycastle.asn1.DERSequence;
@@ -34,6 +40,7 @@ import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InOrder;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -161,6 +168,7 @@ class CertificateManagerServiceImplTest {
         certificateManagerService.renewCertificate();
 
         verify(vaultSecretProvider, never()).persistCertificate(any());
+        verify(vaultSecretProvider, never()).persistKeyPair(any());
     }
 
     @Test
@@ -180,6 +188,7 @@ class CertificateManagerServiceImplTest {
         certificateManagerService.renewCertificate();
 
         verify(vaultSecretProvider, never()).persistCertificate(any());
+        verify(vaultSecretProvider, never()).persistKeyPair(any());
     }
 
     @Test
@@ -200,6 +209,7 @@ class CertificateManagerServiceImplTest {
         certificateManagerService.renewCertificate();
 
         verify(vaultSecretProvider, never()).persistCertificate(any());
+        verify(vaultSecretProvider, never()).persistKeyPair(any());
     }
 
     @Test
@@ -329,10 +339,128 @@ class CertificateManagerServiceImplTest {
 
         when(vaultSecretProvider.getIntermediateCa()).thenReturn(intermediatePem);
         when(vaultSecretProvider.getCertificate()).thenReturn(validPem);
+        when(vaultSecretProvider.getKeyPair()).thenReturn(keyPairDto(kp));
 
         certificateManagerService.run();
 
         verify(pkiService, never()).createKeyPair(any(), any());
+    }
+
+    @Test
+    void run_renewsWhenKeyPairDoesNotMatchCertificate() throws Exception {
+        KeyPair certKey = rsaKeyPair();
+        String validPem = longLivedCertPem(certKey);
+        when(vaultSecretProvider.getIntermediateCa()).thenReturn(validPem);
+        when(vaultSecretProvider.getCertificate()).thenReturn(validPem);
+        when(vaultSecretProvider.getKeyPair()).thenReturn(keyPairDto(rsaKeyPair()));
+        when(pkiService.createKeyPair(null, 2048)).thenReturn(null);
+
+        certificateManagerService.run();
+
+        verify(pkiService, times(1)).createKeyPair(null, 2048);
+    }
+
+    @Test
+    void run_renewsWhenKeyPairMissing() throws Exception {
+        String validPem = longLivedCertPem(rsaKeyPair());
+        when(vaultSecretProvider.getIntermediateCa()).thenReturn(validPem);
+        when(vaultSecretProvider.getCertificate()).thenReturn(validPem);
+        when(vaultSecretProvider.getKeyPair()).thenReturn(null);
+        when(pkiService.createKeyPair(null, 2048)).thenReturn(null);
+
+        certificateManagerService.run();
+
+        verify(pkiService, times(1)).createKeyPair(null, 2048);
+    }
+
+    @Test
+    void renewCertificate_persistsKeyPairOnlyAfterSigningAndBeforeCertificate() {
+        CreateKeyResponseDTO keyPair = CreateKeyResponseDTO.builder()
+                .publicKeyPem("pub")
+                .privateKeyPem("priv")
+                .build();
+        when(pkiService.createKeyPair(null, 2048)).thenReturn(keyPair);
+        when(pkiService.createCsr(any())).thenReturn(new CreateCsrResponseDTO("id", "csr-pem"));
+        when(managementNodeService.signCertificate(any()))
+                .thenReturn(
+                        SignCertResponseDTO.builder().certificate("cert-pem").build());
+        when(vaultSecretProvider.getIntermediateCa()).thenReturn(null);
+
+        certificateManagerService.renewCertificate();
+
+        InOrder inOrder = inOrder(managementNodeService, vaultSecretProvider);
+        inOrder.verify(managementNodeService).signCertificate(any());
+        inOrder.verify(vaultSecretProvider).persistKeyPair(keyPair);
+        inOrder.verify(vaultSecretProvider).persistCertificate("cert-pem");
+    }
+
+    @Test
+    void sync_waitsWhileRenewalIsInProgress() throws Exception {
+        CountDownLatch renewalStarted = new CountDownLatch(1);
+        CountDownLatch releaseRenewal = new CountDownLatch(1);
+        when(vaultSecretProvider.getIntermediateCa()).thenReturn(null);
+        when(managementNodeService.getIntermediateCertificate()).thenReturn(null);
+        when(vaultSecretProvider.getCertificate()).thenReturn(null);
+        when(pkiService.createKeyPair(null, 2048)).thenAnswer(invocation -> {
+            renewalStarted.countDown();
+            releaseRenewal.await(5, TimeUnit.SECONDS);
+            return null;
+        });
+
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+        try {
+            Future<?> renewal = executor.submit(() -> certificateManagerService.run());
+            assertTrue(renewalStarted.await(5, TimeUnit.SECONDS));
+            Thread syncThread = new Thread(() -> certificateManagerService.sync());
+            syncThread.start();
+
+            // The sync thread must end up blocked on the job lock held by the renewal
+            long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
+            while (syncThread.getState() != Thread.State.BLOCKED && System.nanoTime() < deadline) {
+                Thread.onSpinWait();
+            }
+            assertEquals(Thread.State.BLOCKED, syncThread.getState());
+            verify(keyStoreSyncService, never()).syncKeyStores();
+
+            releaseRenewal.countDown();
+            renewal.get(5, TimeUnit.SECONDS);
+            syncThread.join(TimeUnit.SECONDS.toMillis(5));
+            assertFalse(syncThread.isAlive());
+            verify(keyStoreSyncService, times(1)).syncKeyStores();
+        } finally {
+            executor.shutdownNow();
+        }
+    }
+
+    private static KeyPair rsaKeyPair() throws Exception {
+        KeyPairGenerator kpg = KeyPairGenerator.getInstance("RSA");
+        kpg.initialize(2048);
+        return kpg.generateKeyPair();
+    }
+
+    private static String longLivedCertPem(KeyPair keyPair) throws Exception {
+        X500Name name = new X500Name("CN=Valid");
+        long now = System.currentTimeMillis();
+        ContentSigner signer = new JcaContentSignerBuilder("SHA256withRSA").build(keyPair.getPrivate());
+        X509v3CertificateBuilder builder = new JcaX509v3CertificateBuilder(
+                name,
+                BigInteger.valueOf(now),
+                new Date(now - 3600000L * 24),
+                new Date(now + 3600000L * 24 * 59),
+                name,
+                keyPair.getPublic());
+        return PemUtil.toPem(
+                "CERTIFICATE",
+                new JcaX509CertificateConverter()
+                        .getCertificate(builder.build(signer))
+                        .getEncoded());
+    }
+
+    private static CreateKeyResponseDTO keyPairDto(KeyPair keyPair) {
+        return CreateKeyResponseDTO.builder()
+                .publicKeyPem(PemUtil.toPem("PUBLIC KEY", keyPair.getPublic().getEncoded()))
+                .privateKeyPem(PemUtil.toPem("PRIVATE KEY", keyPair.getPrivate().getEncoded()))
+                .build();
     }
 
     @Test
@@ -384,12 +512,12 @@ class CertificateManagerServiceImplTest {
     @Test
     void sync_success() {
         certificateManagerService.sync();
-        verify(keyStoreSyncService, times(1)).syncKeyStoresToFilesystem();
+        verify(keyStoreSyncService, times(1)).syncKeyStores();
     }
 
     @Test
     void sync_propagatesException() {
-        doThrow(new RuntimeException("sync failed")).when(keyStoreSyncService).syncKeyStoresToFilesystem();
+        doThrow(new RuntimeException("sync failed")).when(keyStoreSyncService).syncKeyStores();
 
         assertThrows(RuntimeException.class, () -> certificateManagerService.sync());
     }

@@ -71,48 +71,79 @@ public class CertificateProperties {
 
     /**
      * Nested class for destination configuration.
+     * The keystore and truststore are written to each configured location: {@code file}, {@code vault}, or both.
+     * A location that is not provided (or has a blank path) is skipped.
      */
     @Getter
     @Setter
     public static class Destination {
         /**
-         * The base directory path where all certificate files will be written.
+         * Name of the keystore password file (file) and of the keystore password attribute (vault).
          */
-        private String path;
+        public static final String KEYSTORE_PASSWORD_NAME = "keystore.password";
 
         /**
-         * The filename for the PKCS12 keystore.
+         * Name of the truststore password file (file) and of the truststore password attribute (vault).
          */
-        private String keystoreFile = "keystore.p12";
+        public static final String TRUSTSTORE_PASSWORD_NAME = "truststore.password";
 
         /**
-         * The filename for the PKCS12 truststore.
-         */
-        private String truststoreFile = "truststore.p12";
-
-        /**
-         * The password for the PKCS12 keystore. If not provided, it will be generated.
+         * The password for the PKCS12 keystore, shared by all locations. If not provided, it is resolved from
+         * Vault or generated.
          */
         private String keystorePassword;
 
         /**
-         * The filename for the keystore password.
-         */
-        private String keystorePasswordFile = "keystore.password";
-
-        /**
-         * The password for the PKCS12 truststore. If not provided, it will be generated.
+         * The password for the PKCS12 truststore, shared by all locations. If not provided, it is resolved from
+         * Vault or generated.
          */
         private String truststorePassword;
 
         /**
-         * The filename for the truststore password.
+         * Filesystem location. The keystore, truststore and password files ({@value #KEYSTORE_PASSWORD_NAME},
+         * {@value #TRUSTSTORE_PASSWORD_NAME}) are written under {@code path}.
          */
-        private String truststorePasswordFile = "truststore.password";
+        private StoreLocation file;
+
+        /**
+         * Vault location. {@code path} is a KV v2 secret path whose first segment is the mount
+         * (e.g. {@code /secret/app/federator}); the store file names and the password names are used as the
+         * attribute names in that secret.
+         */
+        private StoreLocation vault;
+    }
+
+    /**
+     * Settings shared by the filesystem and Vault destinations.
+     */
+    @Getter
+    @Setter
+    public static class StoreLocation {
+        /**
+         * The base directory (file) or KV v2 secret path (vault) where the stores are written.
+         */
+        private String path;
+
+        /**
+         * The filename (file) or attribute name (vault) for the PKCS12 keystore.
+         */
+        private String keystoreFile = "keystore.p12";
+
+        /**
+         * The filename (file) or attribute name (vault) for the PKCS12 truststore.
+         */
+        private String truststoreFile = "truststore.p12";
 
         /**
          * The alias for the certificate in the keystore.
          */
         private String keystoreAlias = "federator";
+
+        /**
+         * @return true when a path is configured, meaning stores should be written to this location
+         */
+        public boolean isEnabled() {
+            return path != null && !path.isBlank();
+        }
     }
 }

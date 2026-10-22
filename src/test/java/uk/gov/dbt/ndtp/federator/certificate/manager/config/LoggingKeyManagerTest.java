@@ -71,14 +71,16 @@ class LoggingKeyManagerTest {
     }
 
     @Test
-    void shouldNotLogWhenAliasIsNull() {
+    void shouldLogWhenAliasIsNull() {
 
         when(delegate.chooseClientAlias(any(), any(), any())).thenReturn(null);
 
         String result = keyManager.chooseClientAlias(new String[] {"RSA"}, null, new Socket());
 
         assertNull(result);
-        assertTrue(logAppender.list.isEmpty());
+        List<ILoggingEvent> logs = logAppender.list;
+        assertEquals(1, logs.size());
+        assertTrue(logs.get(0).getFormattedMessage().contains("TLS client certificate NOT selected"));
     }
 
     @Test
@@ -136,12 +138,21 @@ class LoggingKeyManagerTest {
         SSLEngine engine = mock(SSLEngine.class);
         String expected = "alias";
 
+        X509Certificate cert = mock(X509Certificate.class);
+        when(cert.getSubjectX500Principal()).thenReturn(new X500Principal("CN=test"));
+        when(cert.getNotAfter()).thenReturn(new java.util.Date());
+        when(delegate.getCertificateChain(expected)).thenReturn(new X509Certificate[] {cert});
+
         when(delegate.chooseEngineClientAlias(keyTypes, issuers, engine)).thenReturn(expected);
 
         String result = keyManager.chooseEngineClientAlias(keyTypes, issuers, engine);
 
         assertEquals(expected, result);
         verify(delegate).chooseEngineClientAlias(keyTypes, issuers, engine);
+
+        List<ILoggingEvent> logs = logAppender.list;
+        assertEquals(1, logs.size());
+        assertTrue(logs.get(0).getFormattedMessage().contains("TLS client certificate selected (engine)"));
     }
 
     @Test

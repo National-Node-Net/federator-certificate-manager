@@ -39,11 +39,23 @@ public class CertificateManagerServiceImpl implements CertificateManagerService 
     private final KeyStoreSyncService keyStoreSyncService;
 
     /**
+     * Renewal and sync run on separate scheduler threads; this lock stops a sync from reading the certificate
+     * material while a renewal is part-way through writing it.
+     */
+    private final Object jobLock = new Object();
+
+    /**
      * Periodically executed task to check certificate status and initiate renewal if necessary.
      * Also ensures the intermediate CA is refreshed.
      */
     @Override
     public void run() {
+        synchronized (jobLock) {
+            checkAndRenew();
+        }
+    }
+
+    private void checkAndRenew() {
         // Ensure Intermediate CA is healthy before attempting certificate renewal
         checkAndRefreshIntermediateCa();
 
@@ -53,6 +65,9 @@ public class CertificateManagerServiceImpl implements CertificateManagerService 
             renewCertificate();
         } else if (isBootstrapCertificate(currentCert)) {
             log.info("Bootstrap certificate detected. Initiating immediate renewal...");
+            renewCertificate();
+        } else if (!keyPairMatchesCertificate(currentCert)) {
+            log.warn("Key pair in Vault does not match the certificate. Initiating renewal...");
             renewCertificate();
         } else {
             long daysLeft = PemUtil.daysUntilExpiry(currentCert);
@@ -78,7 +93,14 @@ public class CertificateManagerServiceImpl implements CertificateManagerService 
      */
     @Override
     public void sync() {
-        keyStoreSyncService.syncKeyStoresToFilesystem();
+        synchronized (jobLock) {
+            keyStoreSyncService.syncKeyStores();
+        }
+    }
+
+    private boolean keyPairMatchesCertificate(String certificatePem) {
+        CreateKeyResponseDTO keyPair = vaultSecretProvider.getKeyPair();
+        return keyPair != null && PemUtil.privateKeyMatchesCertificate(keyPair.getPrivateKeyPem(), certificatePem);
     }
 
     private static String getExpiryDateString(String currentCert) {
@@ -140,7 +162,9 @@ public class CertificateManagerServiceImpl implements CertificateManagerService 
     void renewCertificate() {
         log.info(RENEW_LOG_MSG);
 
-        CreateKeyResponseDTO keyPair = generateAndPersistKeyPair();
+        // The key pair is only persisted once the certificate has been signed and validated, so a failed renewal
+        // never leaves Vault with a key pair that does not match its certificate.
+        CreateKeyResponseDTO keyPair = pkiService.createKeyPair(null, certificateProperties.getKeySize());
         if (keyPair == null) {
             log.warn("Key pair generation returned null; skipping CSR creation and signing.");
             return;
@@ -158,16 +182,8 @@ public class CertificateManagerServiceImpl implements CertificateManagerService 
             return;
         }
 
-        persistSignedArtifacts(signed);
+        persistSignedArtifacts(signed, keyPair);
         log.info("Certificate renewal completed successfully.");
-    }
-
-    private CreateKeyResponseDTO generateAndPersistKeyPair() {
-        CreateKeyResponseDTO keyPairDto = pkiService.createKeyPair(null, certificateProperties.getKeySize());
-        if (keyPairDto != null) {
-            vaultSecretProvider.persistKeyPair(keyPairDto);
-        }
-        return keyPairDto;
     }
 
     private CreateCsrResponseDTO createCsr(CreateKeyResponseDTO keyPairDto) {
@@ -205,7 +221,7 @@ public class CertificateManagerServiceImpl implements CertificateManagerService 
                 SignCertRequestDTO.builder().csr(csrResp.getCsrPem()).build());
     }
 
-    private void persistSignedArtifacts(SignCertResponseDTO signResp) {
+    private void persistSignedArtifacts(SignCertResponseDTO signResp, CreateKeyResponseDTO keyPair) {
         String certificate = signResp.getCertificate();
         if (certificate == null || certificate.isBlank()) {
             log.warn("Signed certificate is null/blank; skipping certificate validation and persistence.");
@@ -214,6 +230,7 @@ public class CertificateManagerServiceImpl implements CertificateManagerService 
 
         if (!isSignedCertificateValid(certificate)) return;
 
+        vaultSecretProvider.persistKeyPair(keyPair);
         vaultSecretProvider.persistCertificate(certificate);
         persistCaChain(signResp);
         persistIntermediateCert(signResp);

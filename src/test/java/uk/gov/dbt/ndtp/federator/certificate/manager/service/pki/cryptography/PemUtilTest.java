@@ -363,4 +363,63 @@ class PemUtilTest {
         X509Certificate cert = new JcaX509CertificateConverter().getCertificate(builder.build(signer));
         return PemUtil.toPem("CERTIFICATE", cert.getEncoded());
     }
+
+    // --- privateKeyMatchesCertificate ---
+
+    private static KeyPair generateKeyPair(String algorithm) throws Exception {
+        KeyPairGenerator kpg = KeyPairGenerator.getInstance(algorithm);
+        kpg.initialize("EC".equals(algorithm) ? 256 : 2048);
+        return kpg.generateKeyPair();
+    }
+
+    private String certPemFor(KeyPair keyPair, String signatureAlgorithm) throws Exception {
+        X500Name name = new X500Name("CN=Leaf");
+        long now = System.currentTimeMillis();
+        ContentSigner signer = new JcaContentSignerBuilder(signatureAlgorithm).build(keyPair.getPrivate());
+        X509v3CertificateBuilder builder = new JcaX509v3CertificateBuilder(
+                name, BigInteger.valueOf(now), new Date(now), new Date(now + 1000000), name, keyPair.getPublic());
+        return PemUtil.toPem(
+                "CERTIFICATE",
+                new JcaX509CertificateConverter()
+                        .getCertificate(builder.build(signer))
+                        .getEncoded());
+    }
+
+    @Test
+    void privateKeyMatchesCertificate_trueForMatchingRsaKey() throws Exception {
+        KeyPair kp = generateKeyPair("RSA");
+
+        assertTrue(PemUtil.privateKeyMatchesCertificate(
+                PemUtil.toPem("PRIVATE KEY", kp.getPrivate().getEncoded()), certPemFor(kp, "SHA256withRSA")));
+    }
+
+    @Test
+    void privateKeyMatchesCertificate_falseForDifferentKey() throws Exception {
+        String certPem = certPemFor(generateKeyPair("RSA"), "SHA256withRSA");
+        String otherKeyPem =
+                PemUtil.toPem("PRIVATE KEY", generateKeyPair("RSA").getPrivate().getEncoded());
+
+        assertFalse(PemUtil.privateKeyMatchesCertificate(otherKeyPem, certPem));
+    }
+
+    @Test
+    void privateKeyMatchesCertificate_falseForDifferentKeyAlgorithm() throws Exception {
+        String certPem = certPemFor(generateKeyPair("RSA"), "SHA256withRSA");
+        String ecKeyPem =
+                PemUtil.toPem("PRIVATE KEY", generateKeyPair("EC").getPrivate().getEncoded());
+
+        assertFalse(PemUtil.privateKeyMatchesCertificate(ecKeyPem, certPem));
+    }
+
+    @Test
+    void privateKeyMatchesCertificate_falseForNullOrInvalidInput() throws Exception {
+        KeyPair kp = generateKeyPair("RSA");
+        String keyPem = PemUtil.toPem("PRIVATE KEY", kp.getPrivate().getEncoded());
+        String certPem = certPemFor(kp, "SHA256withRSA");
+
+        assertFalse(PemUtil.privateKeyMatchesCertificate(null, certPem));
+        assertFalse(PemUtil.privateKeyMatchesCertificate(keyPem, null));
+        assertFalse(PemUtil.privateKeyMatchesCertificate("not a key", certPem));
+        assertFalse(PemUtil.privateKeyMatchesCertificate(keyPem, "not a certificate"));
+    }
 }

@@ -7,9 +7,11 @@
 package uk.gov.dbt.ndtp.federator.certificate.manager.service.pki;
 
 import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.security.GeneralSecurityException;
 import java.security.KeyStore;
 import java.security.PrivateKey;
 import java.security.cert.Certificate;
@@ -25,6 +27,7 @@ import uk.gov.dbt.ndtp.federator.certificate.manager.service.pki.cryptography.Pe
 @Slf4j
 @Service
 public class KeyStoreService {
+    private static final String PKCS12 = "PKCS12";
 
     /**
      * Creates a PKCS12 keystore containing a private key and its certificate chain.
@@ -51,7 +54,7 @@ public class KeyStoreService {
                 }
             }
 
-            KeyStore ks = KeyStore.getInstance("PKCS12");
+            KeyStore ks = KeyStore.getInstance(PKCS12);
             ks.load(null, null);
             ks.setKeyEntry(alias, privateKey, password.toCharArray(), chain.toArray(new Certificate[0]));
 
@@ -74,22 +77,18 @@ public class KeyStoreService {
 
     /**
      * Creates a PKCS12 truststore containing a list of CA certificates.
+     * Entries from an existing truststore are kept when it can be opened with the given password;
+     * otherwise (e.g. the password changed or the file is corrupt) a fresh truststore is created.
      *
      * @param caChain the list of CA certificates in PEM format
      * @param password the password for the truststore
+     * @param existingTrustStore path of a previously written truststore to merge into, if present
      * @return the serialized PKCS12 truststore as a byte array
      * @throws Exception if truststore creation or serialization fails
      */
     public byte[] createTrustStore(List<String> caChain, String password, Path existingTrustStore) {
         try {
-            KeyStore ks = KeyStore.getInstance("PKCS12");
-            if (Files.exists(existingTrustStore)) {
-                try (InputStream in = Files.newInputStream(existingTrustStore)) {
-                    ks.load(in, password.toCharArray());
-                }
-            } else {
-                ks.load(null, null);
-            }
+            KeyStore ks = loadExistingOrEmptyTrustStore(existingTrustStore, password);
 
             if (caChain != null) {
                 for (int i = 0; i < caChain.size(); i++) {
@@ -104,5 +103,24 @@ public class KeyStoreService {
         } catch (Exception e) {
             throw new PkiException("Failed to create truststore", e);
         }
+    }
+
+    private KeyStore loadExistingOrEmptyTrustStore(Path existingTrustStore, String password)
+            throws GeneralSecurityException, IOException {
+        if (existingTrustStore != null && Files.exists(existingTrustStore)) {
+            KeyStore existing = KeyStore.getInstance(PKCS12);
+            try (InputStream in = Files.newInputStream(existingTrustStore)) {
+                existing.load(in, password.toCharArray());
+                return existing;
+            } catch (IOException | GeneralSecurityException e) {
+                log.warn(
+                        "Existing truststore {} could not be opened ({}). Creating a new truststore instead.",
+                        existingTrustStore,
+                        e.getMessage());
+            }
+        }
+        KeyStore ks = KeyStore.getInstance(PKCS12);
+        ks.load(null, null);
+        return ks;
     }
 }

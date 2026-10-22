@@ -6,6 +6,9 @@
 
 package uk.gov.dbt.ndtp.federator.certificate.manager.service;
 
+import static uk.gov.dbt.ndtp.federator.certificate.manager.config.CertificateProperties.Destination.KEYSTORE_PASSWORD_NAME;
+import static uk.gov.dbt.ndtp.federator.certificate.manager.config.CertificateProperties.Destination.TRUSTSTORE_PASSWORD_NAME;
+
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -23,6 +26,9 @@ import java.security.UnrecoverableKeyException;
 import java.security.cert.Certificate;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
+import java.time.Clock;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
@@ -33,6 +39,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import uk.gov.dbt.ndtp.federator.certificate.manager.config.CertificateProperties;
+import uk.gov.dbt.ndtp.federator.certificate.manager.config.CertificateProperties.StoreLocation;
 import uk.gov.dbt.ndtp.federator.certificate.manager.exception.FileSystemException;
 import uk.gov.dbt.ndtp.federator.certificate.manager.exception.KeyStoreCreationException;
 import uk.gov.dbt.ndtp.federator.certificate.manager.model.dto.CreateKeyResponseDTO;
@@ -42,6 +49,9 @@ import uk.gov.dbt.ndtp.federator.certificate.manager.service.pki.cryptography.Pe
 
 /**
  * Implementation of KeyStoreSyncService.
+ * Builds the keystore and truststore from the material in Vault and writes them, together with their passwords,
+ * to each configured destination: the filesystem ({@code destination.file}), a Vault KV v2 secret
+ * ({@code destination.vault}), or both.
  */
 @Slf4j
 @Service
@@ -56,21 +66,82 @@ public class KeyStoreSyncServiceImpl implements KeyStoreSyncService {
     private final KeyStoreService keyStoreService;
     private final FileSystemService fileSystemService;
 
+    /**
+     * Vault destination attributes recording when the secret was first written and when its content last changed.
+     */
+    static final String CREATED_AT = "createdAt";
+
+    static final String UPDATED_AT = "updatedAt";
+
+    private Clock clock = Clock.systemUTC();
+
+    void setClock(Clock clock) {
+        this.clock = clock;
+    }
+
+    /**
+     * The material every destination is built from.
+     */
+    private record StoreMaterial(
+            String certificatePem,
+            CreateKeyResponseDTO keyPair,
+            List<String> caChain,
+            String keystorePassword,
+            String truststorePassword) {
+
+        boolean hasKeyStoreMaterial() {
+            return certificatePem != null && keyPair != null && keyPair.getPrivateKeyPem() != null;
+        }
+
+        boolean hasCaChain() {
+            return caChain != null && !caChain.isEmpty();
+        }
+    }
+
     @Override
-    public void syncKeyStoresToFilesystem() {
-        log.info("Synchronizing keystores to filesystem...");
+    public void syncKeyStores() {
         CertificateProperties.Destination config = certificateProperties.getDestination();
-        Path basePath = Paths.get(config.getPath());
+        StoreLocation file = config.getFile();
+        StoreLocation vault = config.getVault();
+        boolean toFile = file != null && file.isEnabled();
+        boolean toVault = vault != null && vault.isEnabled();
+        if (!toFile && !toVault) {
+            log.warn("No keystore destination configured (destination.file / destination.vault). Skipping sync.");
+            return;
+        }
+        log.info("Synchronizing keystores to {}", describeDestinations(toFile, toVault));
 
         String keystorePassword = resolvePassword(config.getKeystorePassword(), "keystore-password");
         String truststorePassword = resolvePassword(config.getTruststorePassword(), "truststore-password");
-
         String certificatePem = vaultSecretProvider.getCertificate();
         CreateKeyResponseDTO keyPair = vaultSecretProvider.getKeyPair();
-        List<String> caChain = resolveCaChain();
+        if (certificatePem != null
+                && keyPair != null
+                && keyPair.getPrivateKeyPem() != null
+                && !PemUtil.privateKeyMatchesCertificate(keyPair.getPrivateKeyPem(), certificatePem)) {
+            // e.g. a renewal elsewhere has written one but not yet the other; never publish a mismatched keystore
+            log.warn("Key pair in Vault does not match the certificate. Skipping keystore until they match.");
+            certificatePem = null;
+            keyPair = null;
+        }
+        StoreMaterial material =
+                new StoreMaterial(certificatePem, keyPair, resolveCaChain(), keystorePassword, truststorePassword);
 
-        syncKeyStore(config, basePath, keystorePassword, certificatePem, keyPair, caChain);
-        syncTrustStore(config, basePath, truststorePassword, caChain);
+        if (toFile) {
+            Path basePath = Paths.get(file.getPath());
+            syncKeyStore(file, basePath, material);
+            syncTrustStore(file, basePath, material);
+        }
+        if (toVault) {
+            syncToVault(vault, material);
+        }
+    }
+
+    private static String describeDestinations(boolean toFile, boolean toVault) {
+        if (toFile && toVault) {
+            return "filesystem and Vault";
+        }
+        return toFile ? "filesystem" : "Vault";
     }
 
     private List<String> resolveCaChain() {
@@ -86,70 +157,182 @@ public class KeyStoreSyncServiceImpl implements KeyStoreSyncService {
         return caChain;
     }
 
-    private void syncKeyStore(
-            CertificateProperties.Destination config,
-            Path basePath,
-            String keystorePassword,
-            String certificatePem,
-            CreateKeyResponseDTO keyPair,
-            List<String> caChain) {
-        if (certificatePem == null || keyPair == null || keyPair.getPrivateKeyPem() == null) {
-            log.warn("Missing certificate or key pair in Vault. Skipping keystore synchronization.");
+    // --- filesystem destination ---
+
+    private void syncKeyStore(StoreLocation config, Path basePath, StoreMaterial material) {
+        if (!material.hasKeyStoreMaterial()) {
+            log.warn("No matching certificate and key pair in Vault. Skipping keystore synchronization.");
             return;
         }
         Path keystorePath = basePath.resolve(config.getKeystoreFile());
-        boolean needsUpdate = shouldUpdateKeyStore(
-                keystorePath,
-                keystorePassword,
-                keyPair.getPrivateKeyPem(),
-                certificatePem,
-                caChain,
-                config.getKeystoreAlias());
+        boolean needsUpdate = !Files.exists(keystorePath)
+                || keyStoreDiffers(
+                        readFile(keystorePath), keystorePath.toString(), material, config.getKeystoreAlias());
 
         if (needsUpdate) {
-            byte[] keystoreBytes = keyStoreService.createKeyStore(
-                    keyPair.getPrivateKeyPem(), certificatePem, caChain, keystorePassword, config.getKeystoreAlias());
-            validateKeyStore(keystoreBytes, keystorePassword, config.getKeystoreAlias());
-            fileSystemService.atomicWrite(keystorePath, keystoreBytes);
+            fileSystemService.atomicWrite(keystorePath, buildKeyStore(material, config.getKeystoreAlias()));
             log.info("Keystore synchronized to {}", keystorePath);
         } else {
             log.debug("Keystore at {} is already in sync with Vault. Skipping update.", keystorePath);
         }
-        writePasswordToFile(keystorePath, config.getKeystorePasswordFile(), keystorePassword);
+        writePasswordToFile(keystorePath, KEYSTORE_PASSWORD_NAME, material.keystorePassword());
     }
 
-    private void syncTrustStore(
-            CertificateProperties.Destination config, Path basePath, String truststorePassword, List<String> caChain) {
-        if (caChain == null || caChain.isEmpty()) {
+    private void syncTrustStore(StoreLocation config, Path basePath, StoreMaterial material) {
+        if (!material.hasCaChain()) {
             log.warn("Missing CA chain in Vault. Skipping truststore synchronization.");
             return;
         }
         Path truststorePath = basePath.resolve(config.getTruststoreFile());
-        boolean needsUpdate = shouldUpdateTrustStore(truststorePath, truststorePassword, caChain);
+        boolean needsUpdate = !Files.exists(truststorePath)
+                || trustStoreDiffers(readFile(truststorePath), truststorePath.toString(), material);
 
         if (needsUpdate) {
-            byte[] truststoreBytes = keyStoreService.createTrustStore(caChain, truststorePassword, truststorePath);
-            validateTrustStore(truststoreBytes, truststorePassword);
-            fileSystemService.atomicWrite(truststorePath, truststoreBytes);
+            fileSystemService.atomicWrite(truststorePath, buildTrustStore(material, truststorePath));
             log.info("Truststore synchronized to {}", truststorePath);
         } else {
             log.debug("Truststore at {} is already in sync with Vault. Skipping update.", truststorePath);
         }
-        writePasswordToFile(truststorePath, config.getTruststorePasswordFile(), truststorePassword);
+        writePasswordToFile(truststorePath, TRUSTSTORE_PASSWORD_NAME, material.truststorePassword());
     }
 
-    private boolean shouldUpdateKeyStore(
-            Path path,
-            String password,
-            String privateKeyPem,
-            String certificatePem,
-            List<String> caChain,
-            String alias) {
-        if (!Files.exists(path)) {
-            return true;
+    private static byte[] readFile(Path path) {
+        try {
+            return Files.readAllBytes(path);
+        } catch (IOException e) {
+            log.warn("Failed to read existing store {}: {}. Assuming update is needed.", path, e.getMessage());
+            return new byte[0];
+        }
+    }
+
+    // --- Vault destination ---
+
+    /**
+     * Writes the stores (Base64-encoded) and their passwords to a single KV v2 secret. A new secret version is
+     * only written when something changed, e.g. after a certificate rotation or a password change. Each write
+     * sets {@code updatedAt}; {@code createdAt} is set on the first write and kept afterwards (ISO-8601, UTC).
+     */
+    private void syncToVault(StoreLocation config, StoreMaterial material) {
+        if (!material.hasKeyStoreMaterial() && !material.hasCaChain()) {
+            log.warn("Missing certificate material in Vault. Skipping Vault destination synchronization.");
+            return;
+        }
+        String path = config.getPath();
+        Map<String, Object> existing = vaultSecretProvider.getSecretAtPath(path);
+        Map<String, String> data = new HashMap<>();
+        existing.forEach((key, value) -> {
+            if (value instanceof String str) data.put(key, str);
+        });
+        boolean changed = syncKeyStoreToVault(config, material, data);
+        changed |= syncTrustStoreToVault(config, material, data);
+
+        // Secrets written before the timestamps existed get them on the next sync
+        changed |= !data.containsKey(CREATED_AT) || !data.containsKey(UPDATED_AT);
+
+        if (changed) {
+            String now = Instant.now(clock).truncatedTo(ChronoUnit.SECONDS).toString();
+            data.putIfAbsent(CREATED_AT, now);
+            data.put(UPDATED_AT, now);
+            vaultSecretProvider.persistSecretAtPath(path, data);
+            log.info("Keystore and truststore synchronized to Vault path {}", path);
+        } else {
+            log.debug("Vault path {} is already in sync. Skipping update.", path);
+        }
+    }
+
+    /**
+     * Updates the keystore and its password in {@code data} when they differ from the material.
+     * @return true if {@code data} was changed
+     */
+    private boolean syncKeyStoreToVault(StoreLocation config, StoreMaterial material, Map<String, String> data) {
+        if (!material.hasKeyStoreMaterial()) {
+            log.warn("No matching certificate and key pair in Vault. Skipping keystore for Vault destination.");
+            return false;
+        }
+        boolean changed = false;
+        byte[] current = decodeBase64(data.get(config.getKeystoreFile()));
+        if (current.length == 0
+                || keyStoreDiffers(
+                        current,
+                        vaultLocation(config.getPath(), config.getKeystoreFile()),
+                        material,
+                        config.getKeystoreAlias())) {
+            data.put(config.getKeystoreFile(), encodeBase64(buildKeyStore(material, config.getKeystoreAlias())));
+            changed = true;
+        }
+        return putIfChanged(data, KEYSTORE_PASSWORD_NAME, material.keystorePassword()) || changed;
+    }
+
+    /**
+     * Updates the truststore and its password in {@code data} when they differ from the material.
+     * @return true if {@code data} was changed
+     */
+    private boolean syncTrustStoreToVault(StoreLocation config, StoreMaterial material, Map<String, String> data) {
+        if (!material.hasCaChain()) {
+            log.warn("Missing CA chain in Vault. Skipping truststore for Vault destination.");
+            return false;
+        }
+        boolean changed = false;
+        byte[] current = decodeBase64(data.get(config.getTruststoreFile()));
+        if (current.length == 0
+                || trustStoreDiffers(current, vaultLocation(config.getPath(), config.getTruststoreFile()), material)) {
+            data.put(config.getTruststoreFile(), encodeBase64(buildTrustStore(material, null)));
+            changed = true;
+        }
+        return putIfChanged(data, TRUSTSTORE_PASSWORD_NAME, material.truststorePassword()) || changed;
+    }
+
+    private static boolean putIfChanged(Map<String, String> data, String key, String value) {
+        return !value.equals(data.put(key, value));
+    }
+
+    private static String vaultLocation(String path, String attribute) {
+        return "vault:" + path + "#" + attribute;
+    }
+
+    private static String encodeBase64(byte[] bytes) {
+        return Base64.getEncoder().encodeToString(bytes);
+    }
+
+    /**
+     * @return the decoded bytes, or an empty array when the value is missing, blank or not valid Base64
+     */
+    private static byte[] decodeBase64(String value) {
+        if (value == null || value.isBlank()) {
+            return new byte[0];
         }
         try {
-            KeyStore ks = loadKeyStore(path, password);
+            return Base64.getDecoder().decode(value);
+        } catch (IllegalArgumentException e) {
+            log.warn("Existing Vault store value is not valid Base64. Assuming update is needed.");
+            return new byte[0];
+        }
+    }
+
+    // --- building and comparing stores ---
+
+    private byte[] buildKeyStore(StoreMaterial material, String alias) {
+        byte[] keystoreBytes = keyStoreService.createKeyStore(
+                material.keyPair().getPrivateKeyPem(),
+                material.certificatePem(),
+                material.caChain(),
+                material.keystorePassword(),
+                alias);
+        validateKeyStore(keystoreBytes, material.keystorePassword(), alias);
+        return keystoreBytes;
+    }
+
+    private byte[] buildTrustStore(StoreMaterial material, Path existingTrustStore) {
+        byte[] truststoreBytes =
+                keyStoreService.createTrustStore(material.caChain(), material.truststorePassword(), existingTrustStore);
+        validateTrustStore(truststoreBytes, material.truststorePassword());
+        return truststoreBytes;
+    }
+
+    private boolean keyStoreDiffers(byte[] existing, String location, StoreMaterial material, String alias) {
+        String password = material.keystorePassword();
+        try {
+            KeyStore ks = loadKeyStore(existing, password);
 
             // 1. Check if alias exists
             if (!ks.containsAlias(alias)) return true;
@@ -158,7 +341,7 @@ public class KeyStoreSyncServiceImpl implements KeyStoreSyncService {
             Key key = ks.getKey(alias, password.toCharArray());
             if (key == null) return true;
             PrivateKey existingPriv = (PrivateKey) key;
-            PrivateKey newPriv = PemUtil.parsePkcs8PrivateKey(privateKeyPem);
+            PrivateKey newPriv = PemUtil.parsePkcs8PrivateKey(material.keyPair().getPrivateKeyPem());
             if (!Arrays.equals(existingPriv.getEncoded(), newPriv.getEncoded())) return true;
 
             // 3. Check certificate chain
@@ -166,9 +349,9 @@ public class KeyStoreSyncServiceImpl implements KeyStoreSyncService {
             if (existingChain == null) return true;
 
             List<X509Certificate> newChain = new ArrayList<>();
-            newChain.add(PemUtil.parseCertificate(certificatePem));
-            if (caChain != null) {
-                for (String ca : caChain) {
+            newChain.add(PemUtil.parseCertificate(material.certificatePem()));
+            if (material.caChain() != null) {
+                for (String ca : material.caChain()) {
                     newChain.add(PemUtil.parseCertificate(ca));
                 }
             }
@@ -185,19 +368,18 @@ public class KeyStoreSyncServiceImpl implements KeyStoreSyncService {
                 | NoSuchAlgorithmException
                 | CertificateException
                 | IOException e) {
-            log.warn("Failed to validate existing keystore {}: {}. Assuming update is needed.", path, e.getMessage());
+            log.warn(
+                    "Failed to validate existing keystore {}: {}. Assuming update is needed.",
+                    location,
+                    e.getMessage());
             return true;
         }
     }
 
-    private boolean shouldUpdateTrustStore(Path path, String password, List<String> caChain) {
-        if (!Files.exists(path)) {
-            return true;
-        }
+    private boolean trustStoreDiffers(byte[] existing, String location, StoreMaterial material) {
+        List<String> caChain = material.caChain();
         try {
-            KeyStore ks = loadKeyStore(path, password);
-
-            if (caChain == null) return ks.size() > 0;
+            KeyStore ks = loadKeyStore(existing, material.truststorePassword());
 
             if (ks.size() != caChain.size()) return true;
 
@@ -211,15 +393,18 @@ public class KeyStoreSyncServiceImpl implements KeyStoreSyncService {
 
             return false;
         } catch (KeyStoreException | NoSuchAlgorithmException | CertificateException | IOException e) {
-            log.warn("Failed to validate existing truststore {}: {}. Assuming update is needed.", path, e.getMessage());
+            log.warn(
+                    "Failed to validate existing truststore {}: {}. Assuming update is needed.",
+                    location,
+                    e.getMessage());
             return true;
         }
     }
 
-    private KeyStore loadKeyStore(Path path, String password)
+    private KeyStore loadKeyStore(byte[] bytes, String password)
             throws KeyStoreException, IOException, NoSuchAlgorithmException, CertificateException {
         KeyStore ks = KeyStore.getInstance(PKCS_12);
-        try (InputStream is = Files.newInputStream(path)) {
+        try (InputStream is = new ByteArrayInputStream(bytes)) {
             ks.load(is, password.toCharArray());
         }
         return ks;
