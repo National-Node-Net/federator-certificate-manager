@@ -1175,8 +1175,8 @@
     end
 
     subgraph "Client Credentials"
-        JKS_KS["keystore.jks&lt;br/&gt;(client private key + cert)"]
-        JKS_TS["truststore.jks&lt;br/&gt;(trusted CA certs)"]
+        P12_KS["mtls-keystore.p12&lt;br/&gt;(client private key + cert)"]
+        P12_TS["mtls-truststore.p12&lt;br/&gt;(trusted CA certs)"]
     end
 
     subgraph "External Services"
@@ -1185,8 +1185,8 @@
         VAULT["HashiCorp Vault"]
     end
 
-    JKS_KS --&gt; RC
-    JKS_TS --&gt; RC
+    P12_KS --&gt; RC
+    P12_TS --&gt; RC
     RC --&gt; OTS
     RC --&gt; MNS
     OTS -- "mTLS + client_credentials" --&gt; IDP
@@ -1204,9 +1204,9 @@
 
     CM-&gt;&gt;Server: TLS ClientHello
     Server--&gt;&gt;CM: TLS ServerHello + Server Certificate
-    CM-&gt;&gt;CM: Validate server cert against truststore.jks
+    CM-&gt;&gt;CM: Validate server cert against mtls-truststore.p12
     Server-&gt;&gt;CM: CertificateRequest
-    CM--&gt;&gt;Server: Client Certificate (from keystore.jks)
+    CM--&gt;&gt;Server: Client Certificate (from mtls-keystore.p12)
     Server-&gt;&gt;Server: Validate client cert
     Note over CM,Server: TLS handshake complete (mutual authentication)
     CM-&gt;&gt;Server: HTTP request (encrypted)
@@ -1224,11 +1224,11 @@
 </ol>
 <div class="language-yaml highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nt">application</span><span class="p">:</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">  </span><span class="nt">client</span><span class="p">:</span>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">    </span><span class="nt">key-store</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/etc/certs/keystore.jks</span><span class="w">        </span><span class="c1"># Client identity</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">    </span><span class="nt">key-store</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/etc/certs/mtls-keystore.p12</span><span class="w">     </span><span class="c1"># Client identity</span>
 </span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">    </span><span class="nt">key-store-password</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">${KEYSTORE_PASSWORD}</span>
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">    </span><span class="nt">trust-store</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/etc/certs/truststore.jks</span><span class="w">     </span><span class="c1"># Trusted CAs</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">    </span><span class="nt">trust-store</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/etc/certs/mtls-truststore.p12</span><span class="w"> </span><span class="c1"># Trusted CAs</span>
 </span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="w">    </span><span class="nt">trust-store-password</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">${TRUSTSTORE_PASSWORD}</span>
-</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="w">    </span><span class="nt">key-store-type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">JKS</span><span class="w">                        </span><span class="c1"># JKS or PKCS12</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="w">    </span><span class="nt">key-store-type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">PKCS12</span><span class="w">                      </span><span class="c1"># PKCS12 (.p12)</span>
 </span></code></pre></div>
 <h3 id="important-distinction">Important Distinction</h3>
 <p>There are <strong>two sets of keystores</strong> in this system:</p>
@@ -1243,8 +1243,8 @@
 </thead>
 <tbody>
 <tr>
-<td><strong>Input</strong> keystore.jks / truststore.jks</td>
-<td>JKS</td>
+<td><strong>Input</strong> mtls-keystore.p12 / mtls-truststore.p12</td>
+<td>PKCS#12</td>
 <td>mTLS client identity for outbound calls</td>
 <td>Operator (pre-provisioned)</td>
 </tr>
@@ -1496,7 +1496,7 @@
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="September 29, 2026 10:03:01 UTC">September 29, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="October 22, 2026 14:22:14 UTC">October 22, 2026</span>
   </span>
 
     

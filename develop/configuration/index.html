@@ -552,10 +552,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#destination-output-files" class="md-nav__link">
+  <a href="#destination-output-stores" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Destination (Output Files)
+        Destination (Output Stores)
       
     </span>
   </a>
@@ -1003,10 +1003,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#destination-output-files" class="md-nav__link">
+  <a href="#destination-output-stores" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Destination (Output Files)
+        Destination (Output Stores)
       
     </span>
   </a>
@@ -1226,9 +1226,9 @@
 <tr>
 <td><code>application.client.key-store</code></td>
 <td><code>MTLS_KEYSTORE_PATH</code></td>
-<td><code>...docker/keystore.jks</code></td>
+<td><code>...docker/mtls-keystore.p12</code></td>
 <td>Yes</td>
-<td>Filesystem path to the JKS keystore containing the client private key and certificate</td>
+<td>Filesystem path to the PKCS12 keystore containing the client private key and certificate</td>
 </tr>
 <tr>
 <td><code>application.client.key-store-password</code></td>
@@ -1240,9 +1240,9 @@
 <tr>
 <td><code>application.client.trust-store</code></td>
 <td><code>MTLS_TRUSTSTORE_PATH</code></td>
-<td><code>...docker/truststore.jks</code></td>
+<td><code>...docker/mtls-truststore.p12</code></td>
 <td>Yes</td>
-<td>Filesystem path to the JKS truststore containing trusted CA certificates</td>
+<td>Filesystem path to the PKCS12 truststore containing trusted CA certificates</td>
 </tr>
 <tr>
 <td><code>application.client.trust-store-password</code></td>
@@ -1254,9 +1254,9 @@
 <tr>
 <td><code>application.client.key-store-type</code></td>
 <td><code>MTLS_KEYSTORE_TYPE</code></td>
-<td><code>JKS</code></td>
+<td><code>PKCS12</code></td>
 <td>No</td>
-<td>Keystore format (<code>JKS</code> or <code>PKCS12</code>)</td>
+<td>Keystore format (PKCS12)</td>
 </tr>
 </tbody>
 </table>
@@ -1518,7 +1518,24 @@
 </tr>
 </tbody>
 </table>
-<h3 id="destination-output-files">Destination (Output Files)</h3>
+<h3 id="destination-output-stores">Destination (Output Stores)</h3>
+<p>The keystore, truststore and their passwords are written to each configured destination. <code>destination.file</code> writes them to the filesystem; <code>destination.vault</code> writes them to a Vault KV v2 secret. Either, both or neither may be configured: a destination that is not provided, or whose <code>path</code> is empty, is skipped. By default only the filesystem destination is enabled.</p>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nt">application</span><span class="p">:</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">  </span><span class="nt">certificate</span><span class="p">:</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">    </span><span class="nt">destination</span><span class="p">:</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">      </span><span class="nt">keystore-password</span><span class="p">:</span><span class="w">            </span><span class="c1"># optional, shared by both destinations; generated if empty</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">      </span><span class="nt">truststore-password</span><span class="p">:</span><span class="w">          </span><span class="c1"># optional, shared by both destinations; generated if empty</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="w">      </span><span class="nt">file</span><span class="p">:</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="w">        </span><span class="nt">path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/home/developer/test-secrets/</span>
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="w">        </span><span class="nt">keystore-file</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">keystore.p12</span>
+</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="w">        </span><span class="nt">truststore-file</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">truststore.p12</span>
+</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="w">        </span><span class="nt">keystore-alias</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">federator</span>
+</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="w">      </span><span class="nt">vault</span><span class="p">:</span>
+</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="w">        </span><span class="nt">path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/secret/app/federator</span><span class="w">   </span><span class="c1"># &lt;kv-v2-mount&gt;/&lt;secret-path&gt;</span>
+</span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="w">        </span><span class="nt">keystore-file</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">keystore.p12</span>
+</span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="w">        </span><span class="nt">truststore-file</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">truststore.p12</span>
+</span><span id="__span-0-15"><a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="w">        </span><span class="nt">keystore-alias</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">federator</span>
+</span></code></pre></div>
 <table>
 <thead>
 <tr>
@@ -1530,45 +1547,72 @@
 </thead>
 <tbody>
 <tr>
-<td><code>application.certificate.destination.path</code></td>
-<td><code>CERT_DEST_PATH</code></td>
-<td><code>/home/developer/test-secrets/</code></td>
-<td>Base directory for output files</td>
+<td><code>application.certificate.destination.keystore-password</code></td>
+<td><code>CERT_DEST_KEYSTORE_PASSWORD</code></td>
+<td><em>(empty)</em></td>
+<td>Keystore password shared by the file and vault destinations; generated if empty</td>
 </tr>
 <tr>
-<td><code>application.certificate.destination.keystore-file</code></td>
+<td><code>application.certificate.destination.truststore-password</code></td>
+<td><code>CERT_DEST_TRUSTSTORE_PASSWORD</code></td>
+<td><em>(empty)</em></td>
+<td>Truststore password shared by the file and vault destinations; generated if empty</td>
+</tr>
+<tr>
+<td><code>application.certificate.destination.file.path</code></td>
+<td><code>CERT_DEST_PATH</code></td>
+<td><code>/home/developer/test-secrets/</code></td>
+<td>Base directory for output files; empty disables the filesystem destination</td>
+</tr>
+<tr>
+<td><code>application.certificate.destination.file.keystore-file</code></td>
 <td><code>CERT_DEST_KEYSTORE_FILE</code></td>
 <td><code>keystore.p12</code></td>
 <td>PKCS#12 keystore filename</td>
 </tr>
 <tr>
-<td><code>application.certificate.destination.truststore-file</code></td>
+<td><code>application.certificate.destination.file.truststore-file</code></td>
 <td><code>CERT_DEST_TRUSTSTORE_FILE</code></td>
 <td><code>truststore.p12</code></td>
 <td>PKCS#12 truststore filename</td>
 </tr>
 <tr>
-<td><code>application.certificate.destination.keystore-password-file</code></td>
-<td><code>CERT_DEST_KEYSTORE_PASSWORD_FILE</code></td>
-<td><code>keystore.password</code></td>
-<td>Plaintext file containing the keystore password</td>
-</tr>
-<tr>
-<td><code>application.certificate.destination.truststore-password-file</code></td>
-<td><code>CERT_DEST_TRUSTSTORE_PASSWORD_FILE</code></td>
-<td><code>truststore.password</code></td>
-<td>Plaintext file containing the truststore password</td>
-</tr>
-<tr>
-<td><code>application.certificate.destination.keystore-alias</code></td>
+<td><code>application.certificate.destination.file.keystore-alias</code></td>
 <td><code>CERT_DEST_KEYSTORE_ALIAS</code></td>
 <td><code>federator</code></td>
 <td>Alias for the private key entry in the keystore</td>
+</tr>
+<tr>
+<td><code>application.certificate.destination.vault.path</code></td>
+<td><code>CERT_DEST_VAULT_PATH</code></td>
+<td><em>(empty)</em></td>
+<td>KV v2 secret path; the first segment is the mount. Empty disables the Vault destination</td>
+</tr>
+<tr>
+<td><code>application.certificate.destination.vault.keystore-file</code></td>
+<td><code>CERT_DEST_VAULT_KEYSTORE_FILE</code></td>
+<td><code>keystore.p12</code></td>
+<td>Attribute holding the Base64-encoded PKCS#12 keystore</td>
+</tr>
+<tr>
+<td><code>application.certificate.destination.vault.truststore-file</code></td>
+<td><code>CERT_DEST_VAULT_TRUSTSTORE_FILE</code></td>
+<td><code>truststore.p12</code></td>
+<td>Attribute holding the Base64-encoded PKCS#12 truststore</td>
+</tr>
+<tr>
+<td><code>application.certificate.destination.vault.keystore-alias</code></td>
+<td><code>CERT_DEST_VAULT_KEYSTORE_ALIAS</code></td>
+<td><code>federator</code></td>
+<td>Alias for the private key entry in the Vault keystore</td>
 </tr>
 </tbody>
 </table>
 <blockquote>
 <p><strong>Password Resolution:</strong> If <code>keystore-password</code> or <code>truststore-password</code> is not set in the config, the service checks Vault. If not found in Vault, a cryptographically random Base64-encoded 24-byte password is generated and persisted to Vault.</p>
+<p><strong>Shared passwords:</strong> both destinations use the one <code>keystore-password</code> / <code>truststore-password</code> pair. The passwords are written as <code>keystore.password</code> and <code>truststore.password</code> — as files next to the stores for <code>file</code>, and as attributes of the secret for <code>vault</code>.</p>
+<p><strong>Vault destination:</strong> all four values are stored as attributes of the single secret at <code>vault.path</code>: the stores under the configured <code>keystore-file</code> / <code>truststore-file</code> names, the passwords under <code>keystore.password</code> / <code>truststore.password</code>, plus <code>createdAt</code> (first write) and <code>updatedAt</code> (last content change) timestamps in ISO-8601 UTC. The KV v2 mount must already exist. On each sync the stored stores are compared with the current certificate material, and a new secret version is written only when something changed — so the secret is updated on every certificate rotation. Other attributes already in the secret are preserved. The certificate manager's Vault policy needs <code>create</code>, <code>read</code> and <code>update</code> on <code>&lt;mount&gt;/data/&lt;secret-path&gt;</code>.</p>
+<p><strong>Migrating from the flat layout:</strong> the former <code>destination.path</code>, <code>destination.keystore-file</code>, etc. now live under <code>destination.file</code>. The environment variable names are unchanged. The <code>keystore-password-file</code> / <code>truststore-password-file</code> settings (and <code>CERT_DEST_*_PASSWORD_FILE</code> variables) have been removed: the password names are always <code>keystore.password</code> / <code>truststore.password</code>.</p>
 </blockquote>
 <hr />
 <h2 id="logging-configuration">Logging Configuration</h2>
@@ -1597,7 +1641,7 @@
 </tbody>
 </table>
 <p>The console and file log patterns are fixed:</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} [%X{clientId}] - %msg%n
+<div class="language-text highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} [%X{clientId}] - %msg%n
 </span></code></pre></div>
 <hr />
 <h2 id="configuration-precedence">Configuration Precedence</h2>
@@ -1640,21 +1684,21 @@
 <p>Create <code>application-{profile}.yml</code> in <code>src/main/resources/</code> or in an external config directory. Only include properties that differ from the defaults:</p>
 <p><strong>Example: <code>application-prod.yml</code></strong> — overrides just the production-specific values while inheriting all other defaults from <code>application.yml</code>.</p>
 <h3 id="activating-a-profile">Activating a Profile</h3>
-<div class="language-sh highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1"># Via command-line argument</span>
-</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>java<span class="w"> </span>-jar<span class="w"> </span>federator-certificate-manager-1.0.1.jar<span class="w"> </span>--spring.profiles.active<span class="o">=</span>prod
-</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>
-</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="c1"># Via environment variable</span>
-</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="nv">SPRING_PROFILES_ACTIVE</span><span class="o">=</span>prod<span class="w"> </span>java<span class="w"> </span>-jar<span class="w"> </span>federator-certificate-manager-1.0.1.jar
-</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>
-</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="c1"># Multiple profiles (comma-separated, last wins on conflicts)</span>
-</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>java<span class="w"> </span>-jar<span class="w"> </span>federator-certificate-manager-1.0.1.jar<span class="w"> </span>--spring.profiles.active<span class="o">=</span>base,prod
+<div class="language-sh highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1"># Via command-line argument</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>java<span class="w"> </span>-jar<span class="w"> </span>federator-certificate-manager-1.0.1.jar<span class="w"> </span>--spring.profiles.active<span class="o">=</span>prod
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="c1"># Via environment variable</span>
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="nv">SPRING_PROFILES_ACTIVE</span><span class="o">=</span>prod<span class="w"> </span>java<span class="w"> </span>-jar<span class="w"> </span>federator-certificate-manager-1.0.1.jar
+</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>
+</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="c1"># Multiple profiles (comma-separated, last wins on conflicts)</span>
+</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>java<span class="w"> </span>-jar<span class="w"> </span>federator-certificate-manager-1.0.1.jar<span class="w"> </span>--spring.profiles.active<span class="o">=</span>base,prod
 </span></code></pre></div>
 <h3 id="combining-profiles-with-environment-variables">Combining Profiles with Environment Variables</h3>
 <p>Profiles and environment variables can be used together. A common pattern is to use a profile for structural differences (e.g., different logging patterns) and environment variables for secrets and per-instance values:</p>
-<div class="language-sh highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nv">SPRING_PROFILES_ACTIVE</span><span class="o">=</span>prod<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="nv">VAULT_TOKEN</span><span class="o">=</span>s.xxxxx<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="nv">MTLS_KEYSTORE_PASSWORD</span><span class="o">=</span>secret<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>java<span class="w"> </span>-jar<span class="w"> </span>federator-certificate-manager-1.0.1.jar
+<div class="language-sh highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="nv">SPRING_PROFILES_ACTIVE</span><span class="o">=</span>prod<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="nv">VAULT_TOKEN</span><span class="o">=</span>s.xxxxx<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="nv">MTLS_KEYSTORE_PASSWORD</span><span class="o">=</span>secret<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>java<span class="w"> </span>-jar<span class="w"> </span>federator-certificate-manager-1.0.1.jar
 </span></code></pre></div>
 <p>© Crown Copyright 2026. This work has been developed by the National Digital Twin Programme and is legally attributed to the UK's Department for Business, Innovation, Science and Trade (BIST) as the governing entity.</p>
 <p>Licensed under the Open Government Licence v3.0.  </p>
@@ -1678,7 +1722,7 @@
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="September 29, 2026 10:03:01 UTC">September 29, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="October 22, 2026 14:22:14 UTC">October 22, 2026</span>
   </span>
 
     

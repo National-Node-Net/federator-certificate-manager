@@ -1516,7 +1516,7 @@
 <td>Identity Provider (e.g., Keycloak) for client credentials</td>
 </tr>
 <tr>
-<td><strong>JKS Keystores</strong></td>
+<td><strong>PKCS12 Keystores</strong></td>
 <td>—</td>
 <td>Client keystore and truststore for mTLS</td>
 </tr>
@@ -1537,7 +1537,7 @@
 <li><strong>PKCS#12 KeyStore/TrustStore Generation</strong> — Produces <code>keystore.p12</code> and <code>truststore.p12</code> from PEM artifacts stored in Vault</li>
 <li><strong>Atomic Filesystem Writes</strong> — Uses temp-file-then-rename to prevent partial writes on crash</li>
 <li><strong>HashiCorp Vault Integration</strong> — Persists all cryptographic material (key pairs, certificates, CA chains, passwords) to Vault KV v2</li>
-<li><strong>mTLS-Secured Communication</strong> — All outbound HTTP calls use mutual TLS with configurable JKS keystores</li>
+<li><strong>mTLS-Secured Communication</strong> — All outbound HTTP calls use mutual TLS with configurable PKCS12 keystores</li>
 <li><strong>OAuth2 Client Credentials Flow</strong> — Authenticates against an IdP with Caffeine-cached tokens and automatic refresh</li>
 <li><strong>SBOM Generation</strong> — CycloneDX Maven plugin produces a Software Bill of Materials at build time</li>
 </ul>
@@ -1624,15 +1624,15 @@
 </span><span id="__span-5-11"><a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a><span class="p">}</span>
 </span></code></pre></div>
 <h3 id="step-2-prepare-mtls-keystores">Step 2: Prepare mTLS Keystores</h3>
-<p>The service requires a JKS keystore (containing the client private key and certificate) and a JKS truststore (containing trusted CA certificates) for mTLS communication with the Management Node and IdP.</p>
+<p>The service requires a PKCS12 keystore (containing the client private key and certificate) and a PKCS12 truststore (containing trusted CA certificates) for mTLS communication with the Management Node and IdP.</p>
 <div class="language-sh highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="c1"># Example: Create a client keystore</span>
 </span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>keytool<span class="w"> </span>-genkeypair<span class="w"> </span>-alias<span class="w"> </span>client<span class="w"> </span>-keyalg<span class="w"> </span>RSA<span class="w"> </span>-keysize<span class="w"> </span><span class="m">2048</span><span class="w"> </span><span class="se">\</span>
-</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="w">  </span>-keystore<span class="w"> </span>keystore.jks<span class="w"> </span>-storepass<span class="w"> </span>changeit<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="w">  </span>-keystore<span class="w"> </span>mtls-keystore.p12<span class="w"> </span>-storetype<span class="w"> </span>PKCS12<span class="w"> </span>-storepass<span class="w"> </span>changeit<span class="w"> </span><span class="se">\</span>
 </span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="w">  </span>-dname<span class="w"> </span><span class="s2">"CN=certificate-manager,O=NDTP,C=GB"</span>
 </span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>
 </span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="c1"># Example: Import CA certificate into truststore</span>
 </span><span id="__span-6-7"><a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a>keytool<span class="w"> </span>-importcert<span class="w"> </span>-alias<span class="w"> </span>ca<span class="w"> </span>-file<span class="w"> </span>ca-cert.pem<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-6-8"><a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a><span class="w">  </span>-keystore<span class="w"> </span>truststore.jks<span class="w"> </span>-storepass<span class="w"> </span>changeit<span class="w"> </span>-noprompt
+</span><span id="__span-6-8"><a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a><span class="w">  </span>-keystore<span class="w"> </span>mtls-truststore.p12<span class="w"> </span>-storetype<span class="w"> </span>PKCS12<span class="w"> </span>-storepass<span class="w"> </span>changeit<span class="w"> </span>-noprompt
 </span></code></pre></div>
 <p>To simulate starting from a bootstrap certificate, run the following command to provision a certificate with a short expiry window:
 <div class="language-text highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>make bootstrap-test-certs-clean
@@ -1692,8 +1692,8 @@
 <tr>
 <td><code>MTLS_KEYSTORE_PATH</code></td>
 <td><code>application.client.key-store</code></td>
-<td><code>...docker/keystore.jks</code></td>
-<td>Path to JKS keystore (client private key + cert)</td>
+<td><code>...docker/mtls-keystore.p12</code></td>
+<td>Path to PKCS12 keystore (client private key + cert)</td>
 </tr>
 <tr>
 <td><code>MTLS_KEYSTORE_PASSWORD</code></td>
@@ -1704,8 +1704,8 @@
 <tr>
 <td><code>MTLS_TRUSTSTORE_PATH</code></td>
 <td><code>application.client.trust-store</code></td>
-<td><code>...docker/truststore.jks</code></td>
-<td>Path to JKS truststore (trusted CAs)</td>
+<td><code>...docker/mtls-truststore.p12</code></td>
+<td>Path to PKCS12 truststore (trusted CAs)</td>
 </tr>
 <tr>
 <td><code>MTLS_TRUSTSTORE_PASSWORD</code></td>
@@ -1716,8 +1716,8 @@
 <tr>
 <td><code>MTLS_KEYSTORE_TYPE</code></td>
 <td><code>application.client.key-store-type</code></td>
-<td><code>JKS</code></td>
-<td>Keystore format (<code>JKS</code> or <code>PKCS12</code>)</td>
+<td><code>PKCS12</code></td>
+<td>Keystore format (PKCS12)</td>
 </tr>
 </tbody>
 </table>
@@ -1864,6 +1864,7 @@
 </tbody>
 </table>
 <h4 id="output-destination">Output Destination</h4>
+<p>The keystore, truststore and their passwords are written to each configured destination: the filesystem (<code>destination.file</code>), a Vault KV v2 secret (<code>destination.vault</code>), or both. A destination with an empty <code>path</code> is disabled. By default only the filesystem destination is enabled.</p>
 <table>
 <thead>
 <tr>
@@ -1875,43 +1876,68 @@
 </thead>
 <tbody>
 <tr>
+<td><code>CERT_DEST_KEYSTORE_PASSWORD</code></td>
+<td><code>application.certificate.destination.keystore-password</code></td>
+<td><em>(empty)</em></td>
+<td>Keystore password shared by the file and vault destinations (read from Vault, or generated and saved to Vault, if empty)</td>
+</tr>
+<tr>
+<td><code>CERT_DEST_TRUSTSTORE_PASSWORD</code></td>
+<td><code>application.certificate.destination.truststore-password</code></td>
+<td><em>(empty)</em></td>
+<td>Truststore password shared by the file and vault destinations (read from Vault, or generated and saved to Vault, if empty)</td>
+</tr>
+<tr>
 <td><code>CERT_DEST_PATH</code></td>
-<td><code>application.certificate.destination.path</code></td>
+<td><code>application.certificate.destination.file.path</code></td>
 <td><code>/home/developer/test-secrets/</code></td>
-<td>Base directory for generated files</td>
+<td>Base directory for generated files (empty disables the filesystem destination)</td>
 </tr>
 <tr>
 <td><code>CERT_DEST_KEYSTORE_FILE</code></td>
-<td><code>application.certificate.destination.keystore-file</code></td>
+<td><code>application.certificate.destination.file.keystore-file</code></td>
 <td><code>keystore.p12</code></td>
 <td>PKCS#12 keystore filename</td>
 </tr>
 <tr>
 <td><code>CERT_DEST_TRUSTSTORE_FILE</code></td>
-<td><code>application.certificate.destination.truststore-file</code></td>
+<td><code>application.certificate.destination.file.truststore-file</code></td>
 <td><code>truststore.p12</code></td>
 <td>PKCS#12 truststore filename</td>
 </tr>
 <tr>
-<td><code>CERT_DEST_KEYSTORE_PASSWORD_FILE</code></td>
-<td><code>application.certificate.destination.keystore-password-file</code></td>
-<td><code>keystore.password</code></td>
-<td>Keystore password filename</td>
-</tr>
-<tr>
-<td><code>CERT_DEST_TRUSTSTORE_PASSWORD_FILE</code></td>
-<td><code>application.certificate.destination.truststore-password-file</code></td>
-<td><code>truststore.password</code></td>
-<td>Truststore password filename</td>
-</tr>
-<tr>
 <td><code>CERT_DEST_KEYSTORE_ALIAS</code></td>
-<td><code>application.certificate.destination.keystore-alias</code></td>
+<td><code>application.certificate.destination.file.keystore-alias</code></td>
 <td><code>federator</code></td>
 <td>Private key alias in the keystore</td>
 </tr>
+<tr>
+<td><code>CERT_DEST_VAULT_PATH</code></td>
+<td><code>application.certificate.destination.vault.path</code></td>
+<td><em>(empty)</em></td>
+<td>KV v2 secret path, first segment is the mount, e.g. <code>/secret/app/federator</code> (empty disables the Vault destination)</td>
+</tr>
+<tr>
+<td><code>CERT_DEST_VAULT_KEYSTORE_FILE</code></td>
+<td><code>application.certificate.destination.vault.keystore-file</code></td>
+<td><code>keystore.p12</code></td>
+<td>Secret attribute holding the Base64-encoded keystore</td>
+</tr>
+<tr>
+<td><code>CERT_DEST_VAULT_TRUSTSTORE_FILE</code></td>
+<td><code>application.certificate.destination.vault.truststore-file</code></td>
+<td><code>truststore.p12</code></td>
+<td>Secret attribute holding the Base64-encoded truststore</td>
+</tr>
+<tr>
+<td><code>CERT_DEST_VAULT_KEYSTORE_ALIAS</code></td>
+<td><code>application.certificate.destination.vault.keystore-alias</code></td>
+<td><code>federator</code></td>
+<td>Private key alias in the Vault keystore</td>
+</tr>
 </tbody>
 </table>
+<p>Both destinations use the same keystore and truststore passwords, written as <code>keystore.password</code> and <code>truststore.password</code> (password files next to the stores, or attributes of the Vault secret). The Vault secret is updated (a new KV v2 version) whenever its content changes, e.g. after every certificate rotation; its <code>createdAt</code> / <code>updatedAt</code> attributes record when it was first written and last changed.</p>
 <h4 id="logging">Logging</h4>
 <table>
 <thead>
@@ -1957,9 +1983,9 @@
 <p>Pass environment variables directly — no additional YAML files needed:</p>
 <div class="language-sh highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="nv">VAULT_URI</span><span class="o">=</span>https://vault.prod.example.com:8200<span class="w"> </span><span class="se">\</span>
 </span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="nv">VAULT_TOKEN</span><span class="o">=</span>s.xxxxx<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="nv">MTLS_KEYSTORE_PATH</span><span class="o">=</span>/etc/certs/keystore.jks<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="nv">MTLS_KEYSTORE_PATH</span><span class="o">=</span>/etc/certs/mtls-keystore.p12<span class="w"> </span><span class="se">\</span>
 </span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="nv">MTLS_KEYSTORE_PASSWORD</span><span class="o">=</span>secret<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-9-5"><a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="nv">MTLS_TRUSTSTORE_PATH</span><span class="o">=</span>/etc/certs/truststore.jks<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-9-5"><a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="nv">MTLS_TRUSTSTORE_PATH</span><span class="o">=</span>/etc/certs/mtls-truststore.p12<span class="w"> </span><span class="se">\</span>
 </span><span id="__span-9-6"><a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a><span class="nv">MTLS_TRUSTSTORE_PASSWORD</span><span class="o">=</span>secret<span class="w"> </span><span class="se">\</span>
 </span><span id="__span-9-7"><a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a><span class="nv">OAUTH2_TOKEN_URI</span><span class="o">=</span>https://idp.prod.example.com/realms/mng-node/protocol/openid-connect/token<span class="w"> </span><span class="se">\</span>
 </span><span id="__span-9-8"><a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a><span class="nv">MANAGEMENT_NODE_BASE_URL</span><span class="o">=</span>https://management-node.prod.example.com:8090<span class="w"> </span><span class="se">\</span>
@@ -2084,7 +2110,8 @@
 </span><span id="__span-18-16"><a id="__codelineno-18-16" name="__codelineno-18-16" href="#__codelineno-18-16"></a><span class="w">    </span><span class="nt">subject</span><span class="p">:</span>
 </span><span id="__span-18-17"><a id="__codelineno-18-17" name="__codelineno-18-17" href="#__codelineno-18-17"></a><span class="w">      </span><span class="nt">common-name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">api.env.gov.uk</span>
 </span><span id="__span-18-18"><a id="__codelineno-18-18" name="__codelineno-18-18" href="#__codelineno-18-18"></a><span class="w">    </span><span class="nt">destination</span><span class="p">:</span>
-</span><span id="__span-18-19"><a id="__codelineno-18-19" name="__codelineno-18-19" href="#__codelineno-18-19"></a><span class="w">      </span><span class="nt">path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/tmp/federator-secrets/</span>
+</span><span id="__span-18-19"><a id="__codelineno-18-19" name="__codelineno-18-19" href="#__codelineno-18-19"></a><span class="w">      </span><span class="nt">file</span><span class="p">:</span>
+</span><span id="__span-18-20"><a id="__codelineno-18-20" name="__codelineno-18-20" href="#__codelineno-18-20"></a><span class="w">        </span><span class="nt">path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/tmp/federator-secrets/</span>
 </span></code></pre></div>
 <blockquote>
 <p><strong>Note:</strong> The <code>key-store</code> and <code>trust-store</code> point at the same destination path where the sync job writes. On startup, the sync job reads the bootstrap material from Vault and creates the initial keystores. The renewal job then uses those keystores for mTLS communication with Keycloak and the management-node. No <code>client-secret</code> is needed — the cert-manager authenticates with Keycloak using the X.509 client certificate in the keystore.</p>
@@ -2127,7 +2154,7 @@
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="September 29, 2026 10:03:01 UTC">September 29, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="October 22, 2026 14:22:14 UTC">October 22, 2026</span>
   </span>
 
     
