@@ -6,6 +6,7 @@
 
 package uk.gov.dbt.ndtp.federator.certificate.manager.service;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -410,15 +411,21 @@ class CertificateManagerServiceImplTest {
         try {
             Future<?> renewal = executor.submit(() -> certificateManagerService.run());
             assertTrue(renewalStarted.await(5, TimeUnit.SECONDS));
-            Future<?> sync = executor.submit(() -> certificateManagerService.sync());
+            Thread syncThread = new Thread(() -> certificateManagerService.sync());
+            syncThread.start();
 
-            Thread.sleep(200);
+            // The sync thread must end up blocked on the job lock held by the renewal
+            long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
+            while (syncThread.getState() != Thread.State.BLOCKED && System.nanoTime() < deadline) {
+                Thread.onSpinWait();
+            }
+            assertEquals(Thread.State.BLOCKED, syncThread.getState());
             verify(keyStoreSyncService, never()).syncKeyStores();
-            assertFalse(sync.isDone());
 
             releaseRenewal.countDown();
             renewal.get(5, TimeUnit.SECONDS);
-            sync.get(5, TimeUnit.SECONDS);
+            syncThread.join(TimeUnit.SECONDS.toMillis(5));
+            assertFalse(syncThread.isAlive());
             verify(keyStoreSyncService, times(1)).syncKeyStores();
         } finally {
             executor.shutdownNow();

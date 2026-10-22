@@ -27,6 +27,7 @@ import uk.gov.dbt.ndtp.federator.certificate.manager.service.pki.cryptography.Pe
 @Slf4j
 @Service
 public class KeyStoreService {
+    private static final String PKCS12 = "PKCS12";
 
     /**
      * Creates a PKCS12 keystore containing a private key and its certificate chain.
@@ -53,7 +54,7 @@ public class KeyStoreService {
                 }
             }
 
-            KeyStore ks = KeyStore.getInstance("PKCS12");
+            KeyStore ks = KeyStore.getInstance(PKCS12);
             ks.load(null, null);
             ks.setKeyEntry(alias, privateKey, password.toCharArray(), chain.toArray(new Certificate[0]));
 
@@ -107,7 +108,7 @@ public class KeyStoreService {
     private KeyStore loadExistingOrEmptyTrustStore(Path existingTrustStore, String password)
             throws GeneralSecurityException, IOException {
         if (existingTrustStore != null && Files.exists(existingTrustStore)) {
-            KeyStore existing = KeyStore.getInstance("PKCS12");
+            KeyStore existing = KeyStore.getInstance(PKCS12);
             try (InputStream in = Files.newInputStream(existingTrustStore)) {
                 existing.load(in, password.toCharArray());
                 return existing;
@@ -118,7 +119,7 @@ public class KeyStoreService {
                         e.getMessage());
             }
         }
-        KeyStore ks = KeyStore.getInstance("PKCS12");
+        KeyStore ks = KeyStore.getInstance(PKCS12);
         ks.load(null, null);
         return ks;
     }

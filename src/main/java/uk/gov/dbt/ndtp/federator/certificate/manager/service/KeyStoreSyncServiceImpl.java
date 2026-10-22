@@ -109,9 +109,7 @@ public class KeyStoreSyncServiceImpl implements KeyStoreSyncService {
             log.warn("No keystore destination configured (destination.file / destination.vault). Skipping sync.");
             return;
         }
-        log.info(
-                "Synchronizing keystores to {}",
-                toFile && toVault ? "filesystem and Vault" : toFile ? "filesystem" : "Vault");
+        log.info("Synchronizing keystores to {}", describeDestinations(toFile, toVault));
 
         String keystorePassword = resolvePassword(config.getKeystorePassword(), "keystore-password");
         String truststorePassword = resolvePassword(config.getTruststorePassword(), "truststore-password");
@@ -137,6 +135,13 @@ public class KeyStoreSyncServiceImpl implements KeyStoreSyncService {
         if (toVault) {
             syncToVault(vault, material);
         }
+    }
+
+    private static String describeDestinations(boolean toFile, boolean toVault) {
+        if (toFile && toVault) {
+            return "filesystem and Vault";
+        }
+        return toFile ? "filesystem" : "Vault";
     }
 
     private List<String> resolveCaChain() {
@@ -218,35 +223,8 @@ public class KeyStoreSyncServiceImpl implements KeyStoreSyncService {
         existing.forEach((key, value) -> {
             if (value instanceof String str) data.put(key, str);
         });
-        boolean changed = false;
-
-        if (material.hasKeyStoreMaterial()) {
-            byte[] current = decodeBase64(existing.get(config.getKeystoreFile()));
-            if (current == null
-                    || keyStoreDiffers(
-                            current,
-                            vaultLocation(path, config.getKeystoreFile()),
-                            material,
-                            config.getKeystoreAlias())) {
-                data.put(config.getKeystoreFile(), encodeBase64(buildKeyStore(material, config.getKeystoreAlias())));
-                changed = true;
-            }
-            changed |= putIfChanged(data, KEYSTORE_PASSWORD_NAME, material.keystorePassword());
-        } else {
-            log.warn("No matching certificate and key pair in Vault. Skipping keystore for Vault destination.");
-        }
-
-        if (material.hasCaChain()) {
-            byte[] current = decodeBase64(existing.get(config.getTruststoreFile()));
-            if (current == null
-                    || trustStoreDiffers(current, vaultLocation(path, config.getTruststoreFile()), material)) {
-                data.put(config.getTruststoreFile(), encodeBase64(buildTrustStore(material, null)));
-                changed = true;
-            }
-            changed |= putIfChanged(data, TRUSTSTORE_PASSWORD_NAME, material.truststorePassword());
-        } else {
-            log.warn("Missing CA chain in Vault. Skipping truststore for Vault destination.");
-        }
+        boolean changed = syncKeyStoreToVault(config, material, data);
+        changed |= syncTrustStoreToVault(config, material, data);
 
         // Secrets written before the timestamps existed get them on the next sync
         changed |= !data.containsKey(CREATED_AT) || !data.containsKey(UPDATED_AT);
@@ -262,6 +240,48 @@ public class KeyStoreSyncServiceImpl implements KeyStoreSyncService {
         }
     }
 
+    /**
+     * Updates the keystore and its password in {@code data} when they differ from the material.
+     * @return true if {@code data} was changed
+     */
+    private boolean syncKeyStoreToVault(StoreLocation config, StoreMaterial material, Map<String, String> data) {
+        if (!material.hasKeyStoreMaterial()) {
+            log.warn("No matching certificate and key pair in Vault. Skipping keystore for Vault destination.");
+            return false;
+        }
+        boolean changed = false;
+        byte[] current = decodeBase64(data.get(config.getKeystoreFile()));
+        if (current.length == 0
+                || keyStoreDiffers(
+                        current,
+                        vaultLocation(config.getPath(), config.getKeystoreFile()),
+                        material,
+                        config.getKeystoreAlias())) {
+            data.put(config.getKeystoreFile(), encodeBase64(buildKeyStore(material, config.getKeystoreAlias())));
+            changed = true;
+        }
+        return putIfChanged(data, KEYSTORE_PASSWORD_NAME, material.keystorePassword()) || changed;
+    }
+
+    /**
+     * Updates the truststore and its password in {@code data} when they differ from the material.
+     * @return true if {@code data} was changed
+     */
+    private boolean syncTrustStoreToVault(StoreLocation config, StoreMaterial material, Map<String, String> data) {
+        if (!material.hasCaChain()) {
+            log.warn("Missing CA chain in Vault. Skipping truststore for Vault destination.");
+            return false;
+        }
+        boolean changed = false;
+        byte[] current = decodeBase64(data.get(config.getTruststoreFile()));
+        if (current.length == 0
+                || trustStoreDiffers(current, vaultLocation(config.getPath(), config.getTruststoreFile()), material)) {
+            data.put(config.getTruststoreFile(), encodeBase64(buildTrustStore(material, null)));
+            changed = true;
+        }
+        return putIfChanged(data, TRUSTSTORE_PASSWORD_NAME, material.truststorePassword()) || changed;
+    }
+
     private static boolean putIfChanged(Map<String, String> data, String key, String value) {
         return !value.equals(data.put(key, value));
     }
@@ -274,15 +294,18 @@ public class KeyStoreSyncServiceImpl implements KeyStoreSyncService {
         return Base64.getEncoder().encodeToString(bytes);
     }
 
-    private static byte[] decodeBase64(Object value) {
-        if (!(value instanceof String str) || str.isBlank()) {
-            return null;
+    /**
+     * @return the decoded bytes, or an empty array when the value is missing, blank or not valid Base64
+     */
+    private static byte[] decodeBase64(String value) {
+        if (value == null || value.isBlank()) {
+            return new byte[0];
         }
         try {
-            return Base64.getDecoder().decode(str);
+            return Base64.getDecoder().decode(value);
         } catch (IllegalArgumentException e) {
             log.warn("Existing Vault store value is not valid Base64. Assuming update is needed.");
-            return null;
+            return new byte[0];
         }
     }
 

@@ -382,14 +382,24 @@ public class VaultSecretProviderImpl implements VaultSecretProvider {
      */
     record KvPath(String mount, String relativePath) {
         static KvPath parse(String path) {
-            String trimmed =
-                    path == null ? "" : path.strip().replaceAll("^/+", "").replaceAll("/+$", "");
+            String trimmed = stripSlashes(path == null ? "" : path.strip());
             String[] parts = trimmed.split(STRING_DELIMITER, 2);
             if (parts.length < 2 || parts[0].isBlank() || parts[1].isBlank()) {
                 throw new VaultException(
                         "Invalid Vault secret path '" + path + "'. Expected '<kv-mount>/<secret-path>'.");
             }
             return new KvPath(parts[0], parts[1]);
+        }
+
+        /**
+         * Removes leading and trailing '/' characters (without a regex, which backtracks on long runs of '/').
+         */
+        private static String stripSlashes(String value) {
+            int start = 0;
+            int end = value.length();
+            while (start < end && value.charAt(start) == '/') start++;
+            while (end > start && value.charAt(end - 1) == '/') end--;
+            return value.substring(start, end);
         }
     }
 }
