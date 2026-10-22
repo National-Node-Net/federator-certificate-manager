@@ -13,6 +13,8 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -41,6 +43,7 @@ public class VaultSecretProviderImpl implements VaultSecretProvider {
     private final String mountPath; // e.g. "node-net"
     private final String baseRelativePath; // e.g. "client"
     private volatile boolean mountVerified;
+    private final Set<String> verifiedMounts = ConcurrentHashMap.newKeySet();
 
     /**
      * Constructs the VaultSecretProviderImpl.
@@ -293,6 +296,42 @@ public class VaultSecretProviderImpl implements VaultSecretProvider {
         }
     }
 
+    @Retry(name = "vault")
+    @CircuitBreaker(name = "vault")
+    @Override
+    public void persistSecretAtPath(String path, Map<String, String> secret) {
+        KvPath kvPath = KvPath.parse(path);
+        ensureKvMountExists(kvPath.mount());
+        log.debug("Persisting secret to Vault path: {}/{} (KV v2)", kvPath.mount(), kvPath.relativePath());
+        try {
+            vaultTemplate.opsForVersionedKeyValue(kvPath.mount()).put(kvPath.relativePath(), secret);
+            log.info("Successfully persisted secret to Vault path {}/{}.", kvPath.mount(), kvPath.relativePath());
+        } catch (Exception e) {
+            log.error("Failed to persist secret to Vault at path {}/{}", kvPath.mount(), kvPath.relativePath(), e);
+            throw new VaultException("Vault persistence failed", e);
+        }
+    }
+
+    @Retry(name = "vault")
+    @CircuitBreaker(name = "vault")
+    @Override
+    public Map<String, Object> getSecretAtPath(String path) {
+        KvPath kvPath = KvPath.parse(path);
+        ensureKvMountExists(kvPath.mount());
+        log.debug("Retrieving secret from Vault path: {}/{} (KV v2)", kvPath.mount(), kvPath.relativePath());
+        try {
+            Versioned<Map<String, Object>> versioned =
+                    vaultTemplate.opsForVersionedKeyValue(kvPath.mount()).get(kvPath.relativePath());
+            if (versioned == null || versioned.getData() == null) {
+                return Collections.emptyMap();
+            }
+            return versioned.getData();
+        } catch (Exception e) {
+            log.error("Failed to retrieve secret from Vault at path {}/{}", kvPath.mount(), kvPath.relativePath(), e);
+            throw new VaultException("Vault retrieval failed", e);
+        }
+    }
+
     private void persist(String relativePath, Map<String, String> data, String type) {
         try {
             VaultVersionedKeyValueOperations kv = vaultTemplate.opsForVersionedKeyValue(mountPath);
@@ -313,20 +352,44 @@ public class VaultSecretProviderImpl implements VaultSecretProvider {
         if (mountVerified) {
             return;
         }
+        ensureKvMountExists(mountPath);
+        mountVerified = true;
+    }
+
+    private void ensureKvMountExists(String mount) {
+        if (verifiedMounts.contains(mount)) {
+            return;
+        }
         try {
             VaultSysOperations sys = vaultTemplate.opsForSys();
             Map<String, VaultMount> mounts = sys.getMounts();
-            String key = mountPath.endsWith(STRING_DELIMITER) ? mountPath : mountPath + STRING_DELIMITER;
+            String key = mount.endsWith(STRING_DELIMITER) ? mount : mount + STRING_DELIMITER;
             if (!mounts.containsKey(key)) {
                 log.error("Vault mount '{}' not found. Please provision KV v2 at this path.", key);
                 throw new VaultException("Vault mount '" + key + "' not found. Required for secret persistence.");
             }
-            mountVerified = true;
+            verifiedMounts.add(mount);
         } catch (VaultException e) {
             throw e;
         } catch (Exception e) {
-            log.error("Failed to ensure KV mount exists at '{}'", mountPath, e);
+            log.error("Failed to ensure KV mount exists at '{}'", mount, e);
             throw new VaultException("Failed to verify KV mount existence", e);
+        }
+    }
+
+    /**
+     * A KV v2 secret path split into its mount and the path relative to that mount.
+     */
+    record KvPath(String mount, String relativePath) {
+        static KvPath parse(String path) {
+            String trimmed =
+                    path == null ? "" : path.strip().replaceAll("^/+", "").replaceAll("/+$", "");
+            String[] parts = trimmed.split(STRING_DELIMITER, 2);
+            if (parts.length < 2 || parts[0].isBlank() || parts[1].isBlank()) {
+                throw new VaultException(
+                        "Invalid Vault secret path '" + path + "'. Expected '<kv-mount>/<secret-path>'.");
+            }
+            return new KvPath(parts[0], parts[1]);
         }
     }
 }

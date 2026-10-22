@@ -43,6 +43,11 @@ public class LoggingKeyManager extends X509ExtendedKeyManager {
                         cert.getSubjectX500Principal(),
                         cert.getNotAfter());
             }
+        } else {
+            log.warn(
+                    "TLS client certificate NOT selected. KeyTypes: {}, Issuers: {}",
+                    java.util.Arrays.toString(keyType),
+                    java.util.Arrays.toString(issuers));
         }
 
         return alias;
@@ -65,7 +70,24 @@ public class LoggingKeyManager extends X509ExtendedKeyManager {
 
     @Override
     public String chooseEngineClientAlias(String[] keyType, Principal[] issuers, javax.net.ssl.SSLEngine engine) {
-        return delegate.chooseEngineClientAlias(keyType, issuers, engine);
+        String alias = delegate.chooseEngineClientAlias(keyType, issuers, engine);
+        if (alias != null) {
+            X509Certificate[] chain = delegate.getCertificateChain(alias);
+            if (chain != null && chain.length > 0) {
+                X509Certificate cert = chain[0];
+                log.info(
+                        "TLS client certificate selected (engine): alias={}, subject={}, expires={}",
+                        alias,
+                        cert.getSubjectX500Principal(),
+                        cert.getNotAfter());
+            }
+        } else {
+            log.warn(
+                    "TLS client certificate NOT selected (engine). KeyTypes: {}, Issuers: {}",
+                    java.util.Arrays.toString(keyType),
+                    java.util.Arrays.toString(issuers));
+        }
+        return alias;
     }
 
     @Override

@@ -10,6 +10,8 @@ import java.io.ByteArrayInputStream;
 import java.security.KeyFactory;
 import java.security.PrivateKey;
 import java.security.PublicKey;
+import java.security.SecureRandom;
+import java.security.Signature;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
 import java.security.spec.PKCS8EncodedKeySpec;
@@ -27,6 +29,8 @@ import uk.gov.dbt.ndtp.federator.certificate.manager.exception.PkiException;
 
 @Slf4j
 public final class PemUtil {
+
+    private static final SecureRandom RANDOM = new SecureRandom();
 
     private PemUtil() {
         // Utility class
@@ -164,6 +168,43 @@ public final class PemUtil {
             throw e;
         } catch (Exception e) {
             throw new PkiException("Failed to verify certificate against issuer", e);
+        }
+    }
+
+    /**
+     * Checks whether an RSA private key belongs to a certificate, by signing a random challenge with the key and
+     * verifying the signature with the certificate's public key.
+     *
+     * @param privateKeyPem the PKCS#8 private key in PEM format
+     * @param certificatePem the certificate in PEM format
+     * @return true if the key pair matches; false if it does not, or if either value cannot be parsed
+     */
+    public static boolean privateKeyMatchesCertificate(String privateKeyPem, String certificatePem) {
+        if (privateKeyPem == null || certificatePem == null) {
+            return false;
+        }
+        try {
+            PrivateKey privateKey = parsePkcs8PrivateKey(privateKeyPem);
+            PublicKey publicKey = parseCertificate(certificatePem).getPublicKey();
+            if (!privateKey.getAlgorithm().equals(publicKey.getAlgorithm())) {
+                return false;
+            }
+            String algorithm = "SHA256withRSA";
+            byte[] challenge = new byte[32];
+            RANDOM.nextBytes(challenge);
+
+            Signature signer = Signature.getInstance(algorithm);
+            signer.initSign(privateKey);
+            signer.update(challenge);
+            byte[] signature = signer.sign();
+
+            Signature verifier = Signature.getInstance(algorithm);
+            verifier.initVerify(publicKey);
+            verifier.update(challenge);
+            return verifier.verify(signature);
+        } catch (Exception e) {
+            log.debug("Could not check private key against certificate: {}", e.getMessage());
+            return false;
         }
     }
 

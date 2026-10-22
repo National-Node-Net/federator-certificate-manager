@@ -19,7 +19,7 @@ C4Context
     System_Ext(vault, "HashiCorp Vault", "KV v2 secrets engine for persisting keys, certificates, and passwords")
     System_Ext(mngNode, "Management Node", "PKI API — provides intermediate CA and signs CSRs")
     System_Ext(idp, "OAuth2 Identity Provider", "Issues JWT tokens via client credentials grant (e.g., Keycloak)")
-    System_Ext(fs, "Filesystem", "Destination for PKCS#12 keystores consumed by federator services")
+    System_Ext(fs, "Filesystem", "Optional destination for PKCS#12 keystores consumed by federator services")
 
     Rel(ops, certMgr, "Deploys and configures", "application.yml / env vars")
     Rel(certMgr, vault, "Reads/writes secrets", "Vault HTTP API (KV v2)")
@@ -36,10 +36,10 @@ C4Context
 
 | System | Protocol | Authentication | Purpose |
 |--------|----------|----------------|---------|
-| **HashiCorp Vault** | HTTP/HTTPS (Vault API) | Vault token | Persist and retrieve key pairs, certificates, CA chains, and passwords |
+| **HashiCorp Vault** | HTTP/HTTPS (Vault API) | Vault token | Persist and retrieve key pairs, certificates, CA chains, and passwords; optionally store the PKCS#12 keystore/truststore and passwords at a configured KV v2 path (`destination.vault`) |
 | **Management Node** | HTTPS with mTLS | OAuth2 Bearer token | Fetch intermediate CA certificate; sign certificate signing requests |
 | **OAuth2 IdP** | HTTPS with mTLS | Client credentials (client_id) | Obtain JWT access tokens for Management Node API calls |
-| **Filesystem** | Local I/O | OS-level permissions | Write PKCS#12 keystores and password files for federator consumption |
+| **Filesystem** | Local I/O | OS-level permissions | Write PKCS#12 keystores and password files for federator consumption (`destination.file`, optional) |
 
 ---
 
@@ -71,7 +71,7 @@ C4Container
 
     Rel(ops, scheduler, "Configures rates", "application.yml")
     Rel(scheduler, certSvc, "run()")
-    Rel(scheduler, syncSvc, "syncKeyStoresToFilesystem()")
+    Rel(scheduler, syncSvc, "syncKeyStores()")
     Rel(certSvc, pkiSvc, "createKeyPair(), createCsr()")
     Rel(certSvc, mngClient, "signCertificate(), getIntermediateCertificate()")
     Rel(certSvc, vaultProvider, "persist*()")
@@ -123,7 +123,7 @@ C4Component
     Rel(certMgrSvc, pkiSvc, "createKeyPair(), createCsr()")
     Rel(certMgrSvc, mngNodeSvc, "signCertificate(), getIntermediateCertificate()")
     Rel(certMgrSvc, vaultProv, "persist*(), get*()")
-    Rel(certMgrSvc, keyStoreSyncSvc, "syncKeyStoresToFilesystem()")
+    Rel(certMgrSvc, keyStoreSyncSvc, "syncKeyStores()")
     Rel(keyStoreSyncSvc, vaultProv, "getKeyPair(), getCertificate(), getCaChain()")
     Rel(keyStoreSyncSvc, keyStoreSvc, "createKeyStore(), createTrustStore()")
     Rel(keyStoreSyncSvc, fsSvc, "atomicWrite(), needsUpdate()")

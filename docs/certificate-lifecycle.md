@@ -183,7 +183,7 @@ sequenceDiagram
     participant FS as FileSystemService
 
     Scheduler->>CMS: sync()
-    CMS->>KSS: syncKeyStoresToFilesystem()
+    CMS->>KSS: syncKeyStores()
 
     KSS->>VSP: getCertificate()
     VSP-->>KSS: certificatePem
