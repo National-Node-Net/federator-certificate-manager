@@ -163,6 +163,32 @@ path "sys/mounts" {
 
 Replace `pki-client` and `node-net/client` with your configured `pki-mount` and `secret-path` values.
 
+If the Vault destination (`application.certificate.destination.vault.path`) is enabled, also grant access to that secret. For `path: /secret/app/federator`:
+
+```hcl
+# Keystore, truststore and passwords written by the sync job
+path "secret/data/app/federator" {
+  capabilities = ["create", "read", "update"]
+}
+```
+
+---
+
+## Vault Destination for Keystores
+
+When `destination.vault.path` is set, every sync writes a single KV v2 secret at that path (first segment = mount) with these attributes (the store names come from `destination.vault.keystore-file` / `truststore-file`; the password names are fixed):
+
+| Attribute (default name) | Value |
+|---|---|
+| `keystore.p12` | Base64-encoded PKCS#12 keystore (private key + certificate chain under `keystore-alias`) |
+| `truststore.p12` | Base64-encoded PKCS#12 truststore (CA chain) |
+| `keystore.password` | Keystore password (`destination.keystore-password`, shared with the file destination) |
+| `truststore.password` | Truststore password (`destination.truststore-password`, shared with the file destination) |
+| `createdAt` | When the secret was first written by the service (ISO-8601, UTC, e.g. `2026-10-22T09:41:07Z`); kept on later versions |
+| `updatedAt` | When the service last wrote new content (ISO-8601, UTC); only changes when the stores or passwords change, e.g. on rotation |
+
+The stored keystore and truststore are compared with the current material on each sync; a new secret version is written only when they (or the passwords) differ, which happens on every certificate rotation. Attributes already in the secret that the service does not manage are preserved.
+
 ---
 
 ## Error Handling
@@ -192,7 +218,7 @@ spring:
       connection-timeout: 5000
       read-timeout: 15000
       ssl:
-        trust-store: /etc/certs/vault-truststore.jks
+        trust-store: /etc/certs/vault-truststore.p12
         trust-store-password: ${VAULT_TRUSTSTORE_PASSWORD}
 ```
 

@@ -98,4 +98,20 @@ public interface VaultSecretProvider {
      * @throws VaultException if retrieval fails
      */
     Map<String, Object> getSecret(String suffix);
+
+    /**
+     * Persists a secret to an arbitrary KV v2 path, creating a new version.
+     * @param path the full secret path whose first segment is the KV v2 mount (e.g. {@code secret/app/federator})
+     * @param secret the secret data as a map
+     * @throws VaultException if the path is invalid, the mount is missing or persistence fails
+     */
+    void persistSecretAtPath(String path, Map<String, String> secret);
+
+    /**
+     * Retrieves the latest version of a secret from an arbitrary KV v2 path.
+     * @param path the full secret path whose first segment is the KV v2 mount (e.g. {@code secret/app/federator})
+     * @return the secret data as a map, or an empty map if not found
+     * @throws VaultException if the path is invalid, the mount is missing or retrieval fails
+     */
+    Map<String, Object> getSecretAtPath(String path);
 }

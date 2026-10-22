@@ -7,6 +7,8 @@
 package uk.gov.dbt.ndtp.federator.certificate.manager.client;
 
 import java.io.FileInputStream;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.security.KeyStore;
 import java.security.cert.Certificate;
 import java.security.cert.X509Certificate;
@@ -14,6 +16,7 @@ import java.util.Enumeration;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
 import javax.net.ssl.KeyManager;
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLContext;
@@ -35,6 +38,7 @@ import org.apache.hc.core5.util.Timeout;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import uk.gov.dbt.ndtp.federator.certificate.manager.config.CertificateProperties;
+import uk.gov.dbt.ndtp.federator.certificate.manager.config.CertificateProperties.StoreLocation;
 import uk.gov.dbt.ndtp.federator.certificate.manager.exception.RestClientConfigurationException;
 import uk.gov.dbt.ndtp.federator.certificate.manager.service.pki.VaultSecretProvider;
 
@@ -57,7 +61,7 @@ public class MtlsHttpClientBuilder {
     @Value("${application.client.trust-store-password}")
     private String trustStorePassword;
 
-    @Value("${application.client.key-store-type:JKS}")
+    @Value("${application.client.key-store-type:PKCS12}")
     private String keyStoreType;
 
     private final VaultSecretProvider vaultSecretProvider;
@@ -100,7 +104,7 @@ public class MtlsHttpClientBuilder {
             TrustManagerFactory tmf = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
             tmf.init(trustStore);
 
-            SSLContext sslContext = SSLContext.getInstance("TLS");
+            SSLContext sslContext = SSLContext.getInstance("TLSv1.3");
             sslContext.init(new KeyManager[] {loggingKeyManager}, tmf.getTrustManagers(), null);
             Lookup<TlsSocketStrategy> registry = RegistryBuilder.<TlsSocketStrategy>create()
                     .register("https", new DefaultClientTlsStrategy(sslContext))
@@ -139,8 +143,14 @@ public class MtlsHttpClientBuilder {
                 .build();
     }
 
+    /**
+     * The destination and Vault passwords belong to the keystore written by the sync job, so they are only
+     * used when the client keystore is that file ({@code destination.file}). A separate (e.g. bootstrap) keystore uses the client password.
+     */
     private String getKeyStorePassword() {
         CertificateProperties.Destination config = certificateProperties.getDestination();
+        if (!isSyncedStore(keyStorePath, config.getFile(), StoreLocation::getKeystoreFile)) return keyStorePassword;
+
         String configKeyStorePassword = config.getKeystorePassword();
         if (configKeyStorePassword != null && !configKeyStorePassword.isBlank()) return configKeyStorePassword;
 
@@ -152,6 +162,10 @@ public class MtlsHttpClientBuilder {
 
     private String getTrustStorePassword() {
         CertificateProperties.Destination config = certificateProperties.getDestination();
+        if (!isSyncedStore(trustStorePath, config.getFile(), StoreLocation::getTruststoreFile)) {
+            return trustStorePassword;
+        }
+
         String configTrustStorePassword = config.getTruststorePassword();
         if (configTrustStorePassword != null && !configTrustStorePassword.isBlank()) {
             return configTrustStorePassword;
@@ -161,6 +175,18 @@ public class MtlsHttpClientBuilder {
         if (vaultTrustStorePassword.isPresent()) return vaultTrustStorePassword.get();
 
         return trustStorePassword;
+    }
+
+    private static boolean isSyncedStore(
+            String clientStorePath, StoreLocation fileDestination, Function<StoreLocation, String> storeFile) {
+        if (clientStorePath == null || fileDestination == null || !fileDestination.isEnabled()) return false;
+        String destinationFile = storeFile.apply(fileDestination);
+        if (destinationFile == null) return false;
+        Path syncedStore = Paths.get(fileDestination.getPath())
+                .resolve(destinationFile)
+                .toAbsolutePath()
+                .normalize();
+        return syncedStore.equals(Paths.get(clientStorePath).toAbsolutePath().normalize());
     }
 
     private Optional<String> getSecretFromVault(String secretName) {

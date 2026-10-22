@@ -15,7 +15,7 @@ The service integrates with **HashiCorp Vault** (KV v2) for secret persistence, 
 | **HashiCorp Vault** | 1.15+ | Secret storage (KV v2 engine) |
 | **Management Node** | — | External PKI API (intermediate CA, CSR signing) |
 | **OAuth2 IdP** | — | Identity Provider (e.g., Keycloak) for client credentials |
-| **JKS Keystores** | — | Client keystore and truststore for mTLS |
+| **PKCS12 Keystores** | — | Client keystore and truststore for mTLS |
 
 ### System Requirements
 
@@ -33,7 +33,7 @@ The service integrates with **HashiCorp Vault** (KV v2) for secret persistence, 
 - **PKCS#12 KeyStore/TrustStore Generation** — Produces `keystore.p12` and `truststore.p12` from PEM artifacts stored in Vault
 - **Atomic Filesystem Writes** — Uses temp-file-then-rename to prevent partial writes on crash
 - **HashiCorp Vault Integration** — Persists all cryptographic material (key pairs, certificates, CA chains, passwords) to Vault KV v2
-- **mTLS-Secured Communication** — All outbound HTTP calls use mutual TLS with configurable JKS keystores
+- **mTLS-Secured Communication** — All outbound HTTP calls use mutual TLS with configurable PKCS12 keystores
 - **OAuth2 Client Credentials Flow** — Authenticates against an IdP with Caffeine-cached tokens and automatic refresh
 - **SBOM Generation** — CycloneDX Maven plugin produces a Software Bill of Materials at build time
 
@@ -124,17 +124,17 @@ path "sys/mounts" {
 
 ### Step 2: Prepare mTLS Keystores
 
-The service requires a JKS keystore (containing the client private key and certificate) and a JKS truststore (containing trusted CA certificates) for mTLS communication with the Management Node and IdP.
+The service requires a PKCS12 keystore (containing the client private key and certificate) and a PKCS12 truststore (containing trusted CA certificates) for mTLS communication with the Management Node and IdP.
 
 ```sh
 # Example: Create a client keystore
 keytool -genkeypair -alias client -keyalg RSA -keysize 2048 \
-  -keystore keystore.jks -storepass changeit \
+  -keystore mtls-keystore.p12 -storetype PKCS12 -storepass changeit \
   -dname "CN=certificate-manager,O=NDTP,C=GB"
 
 # Example: Import CA certificate into truststore
 keytool -importcert -alias ca -file ca-cert.pem \
-  -keystore truststore.jks -storepass changeit -noprompt
+  -keystore mtls-truststore.p12 -storetype PKCS12 -storepass changeit -noprompt
 ```
 
 To simulate starting from a bootstrap certificate, run the following command to provision a certificate with a short expiry window:
@@ -163,11 +163,11 @@ See the [Configuration Reference](docs/configuration.md) for full details.
 
 | Environment Variable | Property Path | Default | Description |
 |---|---|---|---|
-| `MTLS_KEYSTORE_PATH` | `application.client.key-store` | `...docker/keystore.jks` | Path to JKS keystore (client private key + cert) |
+| `MTLS_KEYSTORE_PATH` | `application.client.key-store` | `...docker/mtls-keystore.p12` | Path to PKCS12 keystore (client private key + cert) |
 | `MTLS_KEYSTORE_PASSWORD` | `application.client.key-store-password` | `changeit` | Keystore password |
-| `MTLS_TRUSTSTORE_PATH` | `application.client.trust-store` | `...docker/truststore.jks` | Path to JKS truststore (trusted CAs) |
+| `MTLS_TRUSTSTORE_PATH` | `application.client.trust-store` | `...docker/mtls-truststore.p12` | Path to PKCS12 truststore (trusted CAs) |
 | `MTLS_TRUSTSTORE_PASSWORD` | `application.client.trust-store-password` | `changeit` | Truststore password |
-| `MTLS_KEYSTORE_TYPE` | `application.client.key-store-type` | `JKS` | Keystore format (`JKS` or `PKCS12`) |
+| `MTLS_KEYSTORE_TYPE` | `application.client.key-store-type` | `PKCS12` | Keystore format (PKCS12) |
 
 #### OAuth2 & Management Node
 
@@ -206,14 +206,22 @@ See the [Configuration Reference](docs/configuration.md) for full details.
 
 #### Output Destination
 
+The keystore, truststore and their passwords are written to each configured destination: the filesystem (`destination.file`), a Vault KV v2 secret (`destination.vault`), or both. A destination with an empty `path` is disabled. By default only the filesystem destination is enabled.
+
 | Environment Variable | Property Path | Default | Description |
 |---|---|---|---|
-| `CERT_DEST_PATH` | `application.certificate.destination.path` | `/home/developer/test-secrets/` | Base directory for generated files |
-| `CERT_DEST_KEYSTORE_FILE` | `application.certificate.destination.keystore-file` | `keystore.p12` | PKCS#12 keystore filename |
-| `CERT_DEST_TRUSTSTORE_FILE` | `application.certificate.destination.truststore-file` | `truststore.p12` | PKCS#12 truststore filename |
-| `CERT_DEST_KEYSTORE_PASSWORD_FILE` | `application.certificate.destination.keystore-password-file` | `keystore.password` | Keystore password filename |
-| `CERT_DEST_TRUSTSTORE_PASSWORD_FILE` | `application.certificate.destination.truststore-password-file` | `truststore.password` | Truststore password filename |
-| `CERT_DEST_KEYSTORE_ALIAS` | `application.certificate.destination.keystore-alias` | `federator` | Private key alias in the keystore |
+| `CERT_DEST_KEYSTORE_PASSWORD` | `application.certificate.destination.keystore-password` | *(empty)* | Keystore password shared by the file and vault destinations (read from Vault, or generated and saved to Vault, if empty) |
+| `CERT_DEST_TRUSTSTORE_PASSWORD` | `application.certificate.destination.truststore-password` | *(empty)* | Truststore password shared by the file and vault destinations (read from Vault, or generated and saved to Vault, if empty) |
+| `CERT_DEST_PATH` | `application.certificate.destination.file.path` | `/home/developer/test-secrets/` | Base directory for generated files (empty disables the filesystem destination) |
+| `CERT_DEST_KEYSTORE_FILE` | `application.certificate.destination.file.keystore-file` | `keystore.p12` | PKCS#12 keystore filename |
+| `CERT_DEST_TRUSTSTORE_FILE` | `application.certificate.destination.file.truststore-file` | `truststore.p12` | PKCS#12 truststore filename |
+| `CERT_DEST_KEYSTORE_ALIAS` | `application.certificate.destination.file.keystore-alias` | `federator` | Private key alias in the keystore |
+| `CERT_DEST_VAULT_PATH` | `application.certificate.destination.vault.path` | *(empty)* | KV v2 secret path, first segment is the mount, e.g. `/secret/app/federator` (empty disables the Vault destination) |
+| `CERT_DEST_VAULT_KEYSTORE_FILE` | `application.certificate.destination.vault.keystore-file` | `keystore.p12` | Secret attribute holding the Base64-encoded keystore |
+| `CERT_DEST_VAULT_TRUSTSTORE_FILE` | `application.certificate.destination.vault.truststore-file` | `truststore.p12` | Secret attribute holding the Base64-encoded truststore |
+| `CERT_DEST_VAULT_KEYSTORE_ALIAS` | `application.certificate.destination.vault.keystore-alias` | `federator` | Private key alias in the Vault keystore |
+
+Both destinations use the same keystore and truststore passwords, written as `keystore.password` and `truststore.password` (password files next to the stores, or attributes of the Vault secret). The Vault secret is updated (a new KV v2 version) whenever its content changes, e.g. after every certificate rotation; its `createdAt` / `updatedAt` attributes record when it was first written and last changed.
 
 #### Logging
 
@@ -254,9 +262,9 @@ Pass environment variables directly — no additional YAML files needed:
 ```sh
 VAULT_URI=https://vault.prod.example.com:8200 \
 VAULT_TOKEN=s.xxxxx \
-MTLS_KEYSTORE_PATH=/etc/certs/keystore.jks \
+MTLS_KEYSTORE_PATH=/etc/certs/mtls-keystore.p12 \
 MTLS_KEYSTORE_PASSWORD=secret \
-MTLS_TRUSTSTORE_PATH=/etc/certs/truststore.jks \
+MTLS_TRUSTSTORE_PATH=/etc/certs/mtls-truststore.p12 \
 MTLS_TRUSTSTORE_PASSWORD=secret \
 OAUTH2_TOKEN_URI=https://idp.prod.example.com/realms/mng-node/protocol/openid-connect/token \
 MANAGEMENT_NODE_BASE_URL=https://management-node.prod.example.com:8090 \
@@ -421,7 +429,8 @@ application:
     subject:
       common-name: api.env.gov.uk
     destination:
-      path: /tmp/federator-secrets/
+      file:
+        path: /tmp/federator-secrets/
 ```
 
 > **Note:** The `key-store` and `trust-store` point at the same destination path where the sync job writes. On startup, the sync job reads the bootstrap material from Vault and creates the initial keystores. The renewal job then uses those keystores for mTLS communication with Keycloak and the management-node. No `client-secret` is needed — the cert-manager authenticates with Keycloak using the X.509 client certificate in the keystore.
