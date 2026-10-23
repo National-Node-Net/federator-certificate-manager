@@ -92,6 +92,7 @@ jobs:
           exit-code: "1"
           ignore-unfixed: true
           severity: "CRITICAL,HIGH"
+          trivyignores: .trivyignore
         continue-on-error: true
 
       - name: Tag Server Image with tag(s) ${{ inputs.image_tag }}

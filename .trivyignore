@@ -12,3 +12,8 @@ CVE-2026-56407
 CVE-2026-56408
 # p11-kit and p11-kit-trust 0.25.5-r2
 CVE-2026-2100
+# spring-webmvc 6.2.19: fix only available in Spring Framework 7.0.9 (requires Spring Boot 4 migration).
+# Not exploitable here: the app does not use XsltView or SSE emitters (SseEmitter/ServerSentEvent).
+# Remove once upgraded to Spring Boot 4.x.
+CVE-2026-47884
+CVE-2026-47890
