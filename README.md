@@ -1,3 +1,5 @@
+![OSPO compliance](https://raw.githubusercontent.com/National-Node-Net/ndt-overwatch/sync/governance-badges/repositories/federator-certificate-manager/ospo-compliance.svg) ![Develop activity](https://raw.githubusercontent.com/National-Node-Net/ndt-overwatch/sync/governance-badges/repositories/federator-certificate-manager/develop-activity.svg) ![Last checked](https://raw.githubusercontent.com/National-Node-Net/ndt-overwatch/sync/governance-badges/repositories/federator-certificate-manager/last-checked.svg)
+
 # README
 
 **Repository:** `federator-certificate-manager`  
