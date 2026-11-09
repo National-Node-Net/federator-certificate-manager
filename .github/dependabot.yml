@@ -6,8 +6,16 @@ updates:
     registries: "*"
     schedule:
       interval: "daily"
+    groups:
+      maven-dependencies:
+        patterns:
+          - "*"
   # target-branch intentionally omitted: action updates target main (auto-merged) and are back-merged to develop.
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
       interval: weekly
+    groups:
+      github-actions:
+        patterns:
+          - "*"
