@@ -20,6 +20,7 @@ import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestClient;
 import uk.gov.dbt.ndtp.federator.certificate.manager.client.MtlsHttpClientBuilder;
+import uk.gov.dbt.ndtp.federator.certificate.manager.exception.ExternalCallErrors;
 import uk.gov.dbt.ndtp.federator.certificate.manager.exception.OAuth2TokenException;
 
 /**
@@ -86,17 +87,24 @@ public class OAuth2TokenServiceImpl implements OAuth2TokenService {
                 log.info("Successfully retrieved access token, expires in {} seconds", expiresIn);
                 return new TokenResponse(token, expiresIn);
             } else {
-                log.error(
-                        "Token response did not contain access_token: {}",
-                        response != null ? response.keySet() : "null");
-                throw new OAuth2TokenException("Failed to retrieve access token. Missing access_token in response.");
+                String message = describeRequest()
+                        + ": response did not contain access_token (response fields: "
+                        + (response != null ? response.keySet() : "none - empty response") + ")";
+                log.warn("OAuth2 token request failed. {}", message);
+                throw new OAuth2TokenException(message);
             }
         } catch (OAuth2TokenException e) {
             throw e;
         } catch (Exception e) {
-            log.error("Error retrieving OAuth2 token", e);
-            throw new OAuth2TokenException("Error retrieving OAuth2 token", e);
+            // One line per attempt; the full stack trace is logged once by the job after retries are used up.
+            String message = describeRequest() + ": " + ExternalCallErrors.describe(e);
+            log.warn("OAuth2 token request failed. {}", message);
+            throw new OAuth2TokenException(message, e);
         }
+    }
+
+    private String describeRequest() {
+        return "Failed to obtain OAuth2 token [POST " + tokenUri + ", client_id=" + clientId + "]";
     }
 
     /**

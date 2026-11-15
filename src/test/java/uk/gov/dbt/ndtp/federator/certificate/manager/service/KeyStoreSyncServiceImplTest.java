@@ -55,6 +55,7 @@ import uk.gov.dbt.ndtp.federator.certificate.manager.model.dto.CreateKeyResponse
 import uk.gov.dbt.ndtp.federator.certificate.manager.service.pki.KeyStoreService;
 import uk.gov.dbt.ndtp.federator.certificate.manager.service.pki.VaultSecretProvider;
 import uk.gov.dbt.ndtp.federator.certificate.manager.service.pki.cryptography.PemUtil;
+import uk.gov.dbt.ndtp.federator.certificate.manager.service.pki.cryptography.TestPkiHierarchy;
 
 @ExtendWith(MockitoExtension.class)
 class KeyStoreSyncServiceImplTest {
@@ -1125,5 +1126,54 @@ class KeyStoreSyncServiceImplTest {
         assertEquals("2026-10-22T09:30:00Z", secret.get("createdAt"));
         assertEquals("2026-10-22T09:30:00Z", secret.get("updatedAt"));
         assertEquals(existing.get("keystore.p12"), secret.get("keystore.p12"));
+    }
+
+    // --- multi-entry CA chain ---
+
+    /**
+     * Stubs Vault with a three-level PKI whose CA chain lists the root before the intermediate, plus an unrelated CA.
+     */
+    private TestPkiHierarchy stubOutOfOrderCaChain() {
+        TestPkiHierarchy pki = new TestPkiHierarchy();
+        String unrelatedCa =
+                TestPkiHierarchy.selfSigned("CN=Other Federator CA").pem();
+        when(vaultSecretProvider.getCertificate()).thenReturn(pki.leaf.pem());
+        when(vaultSecretProvider.getKeyPair())
+                .thenReturn(CreateKeyResponseDTO.builder()
+                        .publicKeyPem("pub")
+                        .privateKeyPem(pki.leaf.privateKeyPem())
+                        .build());
+        when(vaultSecretProvider.getCaChain()).thenReturn(List.of(pki.root.pem(), unrelatedCa, pki.intermediate.pem()));
+        return pki;
+    }
+
+    @Test
+    void syncKeyStores_outOfOrderCaChain_writesKeystoreWithOrderedChainAndFullTruststore() throws Exception {
+        TestPkiHierarchy pki = stubOutOfOrderCaChain();
+
+        serviceWithRealStores().syncKeyStores();
+
+        KeyStore keystore = KeyStore.getInstance("PKCS12");
+        keystore.load(Files.newInputStream(tempDir.resolve("keystore.p12")), "ks-pass".toCharArray());
+        assertEquals(
+                List.of(pki.leaf.certificate(), pki.intermediate.certificate(), pki.root.certificate()),
+                List.of(keystore.getCertificateChain("federator")));
+
+        KeyStore truststore = KeyStore.getInstance("PKCS12");
+        truststore.load(Files.newInputStream(tempDir.resolve("truststore.p12")), "ts-pass".toCharArray());
+        assertEquals(3, truststore.size());
+    }
+
+    @Test
+    void syncKeyStores_outOfOrderCaChain_secondSyncSeesKeystoreAsInSync() throws Exception {
+        stubOutOfOrderCaChain();
+        KeyStoreSyncServiceImpl service = serviceWithRealStores();
+        service.syncKeyStores();
+        byte[] firstKeystore = Files.readAllBytes(tempDir.resolve("keystore.p12"));
+
+        service.syncKeyStores();
+
+        // PKCS12 output is salted, so identical bytes mean the keystore was not rewritten
+        assertArrayEquals(firstKeystore, Files.readAllBytes(tempDir.resolve("keystore.p12")));
     }
 }

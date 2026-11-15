@@ -29,7 +29,6 @@ import java.security.cert.X509Certificate;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.HashMap;
@@ -45,6 +44,7 @@ import uk.gov.dbt.ndtp.federator.certificate.manager.exception.KeyStoreCreationE
 import uk.gov.dbt.ndtp.federator.certificate.manager.model.dto.CreateKeyResponseDTO;
 import uk.gov.dbt.ndtp.federator.certificate.manager.service.pki.KeyStoreService;
 import uk.gov.dbt.ndtp.federator.certificate.manager.service.pki.VaultSecretProvider;
+import uk.gov.dbt.ndtp.federator.certificate.manager.service.pki.cryptography.CertificateChainBuilder;
 import uk.gov.dbt.ndtp.federator.certificate.manager.service.pki.cryptography.PemUtil;
 
 /**
@@ -348,13 +348,8 @@ public class KeyStoreSyncServiceImpl implements KeyStoreSyncService {
             Certificate[] existingChain = ks.getCertificateChain(alias);
             if (existingChain == null) return true;
 
-            List<X509Certificate> newChain = new ArrayList<>();
-            newChain.add(PemUtil.parseCertificate(material.certificatePem()));
-            if (material.caChain() != null) {
-                for (String ca : material.caChain()) {
-                    newChain.add(PemUtil.parseCertificate(ca));
-                }
-            }
+            List<X509Certificate> newChain =
+                    CertificateChainBuilder.build(material.certificatePem(), material.caChain());
 
             if (existingChain.length != newChain.size()) return true;
             for (int i = 0; i < existingChain.length; i++) {

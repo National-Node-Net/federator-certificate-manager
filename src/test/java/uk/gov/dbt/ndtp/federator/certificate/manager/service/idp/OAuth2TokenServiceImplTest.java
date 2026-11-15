@@ -11,6 +11,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
+import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -19,8 +20,11 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.util.MultiValueMap;
+import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClient;
 import uk.gov.dbt.ndtp.federator.certificate.manager.client.MtlsHttpClientBuilder;
 import uk.gov.dbt.ndtp.federator.certificate.manager.exception.OAuth2TokenException;
@@ -125,5 +129,37 @@ class OAuth2TokenServiceImplTest {
         doReturn(restClient).when(service).buildRestClient(httpClient);
 
         assertThrows(OAuth2TokenException.class, service::getAccessToken);
+    }
+
+    @Test
+    void getAccessToken_exceptionMessageContainsHttpStatusAndKeycloakError() {
+        MtlsHttpClientBuilder builder = mock(MtlsHttpClientBuilder.class);
+        CloseableHttpClient httpClient = mock(CloseableHttpClient.class);
+        RestClient restClient = mock(RestClient.class, RETURNS_DEEP_STUBS);
+        when(builder.buildHttpClient()).thenReturn(httpClient);
+
+        when(restClient
+                        .post()
+                        .uri(anyString())
+                        .contentType(any(MediaType.class))
+                        .body(any(MultiValueMap.class))
+                        .retrieve()
+                        .body(any(ParameterizedTypeReference.class)))
+                .thenThrow(HttpClientErrorException.create(
+                        HttpStatus.UNAUTHORIZED,
+                        "Unauthorized",
+                        HttpHeaders.EMPTY,
+                        "{\"error\":\"invalid_client\"}".getBytes(StandardCharsets.UTF_8),
+                        StandardCharsets.UTF_8));
+
+        OAuth2TokenServiceImpl service = new OAuth2TokenServiceImpl(builder, "https://example/token", "CLIENT");
+        service = spy(service);
+        doReturn(restClient).when(service).buildRestClient(httpClient);
+
+        OAuth2TokenException ex = assertThrows(OAuth2TokenException.class, service::getAccessToken);
+        assertEquals(
+                "Failed to obtain OAuth2 token [POST https://example/token, client_id=CLIENT]: "
+                        + "HTTP 401 Unauthorized - {\"error\":\"invalid_client\"}",
+                ex.getMessage());
     }
 }

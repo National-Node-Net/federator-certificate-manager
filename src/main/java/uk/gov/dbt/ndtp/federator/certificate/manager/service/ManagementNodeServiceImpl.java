@@ -16,6 +16,7 @@ import org.springframework.http.client.HttpComponentsClientHttpRequestFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 import uk.gov.dbt.ndtp.federator.certificate.manager.client.MtlsHttpClientBuilder;
+import uk.gov.dbt.ndtp.federator.certificate.manager.exception.ExternalCallErrors;
 import uk.gov.dbt.ndtp.federator.certificate.manager.exception.ManagementNodeException;
 import uk.gov.dbt.ndtp.federator.certificate.manager.model.dto.CertificateResponseDTO;
 import uk.gov.dbt.ndtp.federator.certificate.manager.model.dto.SignCertRequestDTO;
@@ -78,7 +79,7 @@ public class ManagementNodeServiceImpl implements ManagementNodeService {
                     .retrieve()
                     .body(CertificateResponseDTO.class);
         } catch (Exception e) {
-            throw new ManagementNodeException("Failed to retrieve intermediate certificate", e);
+            throw failure("Failed to retrieve intermediate certificate", "GET", url, e);
         }
     }
 
@@ -107,8 +108,19 @@ public class ManagementNodeServiceImpl implements ManagementNodeService {
                     .retrieve()
                     .body(SignCertResponseDTO.class);
         } catch (Exception e) {
-            throw new ManagementNodeException("Failed to sign certificate", e);
+            throw failure("Failed to sign certificate", "POST", url, e);
         }
+    }
+
+    /**
+     * Builds an exception whose message carries the request and the reason it failed (HTTP status and response
+     * body, connection refused, TLS failure, ...). Each failed attempt is logged on one line; the full stack trace is
+     * logged once by the job when all retries have been used up.
+     */
+    private static ManagementNodeException failure(String operation, String method, String url, Exception cause) {
+        String message = operation + " [" + method + " " + url + "]: " + ExternalCallErrors.describe(cause);
+        log.warn("Management Node call failed. {}", message);
+        return new ManagementNodeException(message, cause);
     }
 
     /**

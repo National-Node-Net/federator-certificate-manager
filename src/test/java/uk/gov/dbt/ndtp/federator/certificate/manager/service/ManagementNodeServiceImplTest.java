@@ -9,6 +9,7 @@ package uk.gov.dbt.ndtp.federator.certificate.manager.service;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
@@ -83,7 +84,7 @@ class ManagementNodeServiceImplTest {
 
         ManagementNodeException ex =
                 assertThrows(ManagementNodeException.class, () -> managementNodeService.getIntermediateCertificate());
-        assertEquals("Failed to retrieve intermediate certificate", ex.getMessage());
+        assertTrue(ex.getMessage().startsWith("Failed to retrieve intermediate certificate [GET "), ex.getMessage());
     }
 
     @Test
@@ -135,6 +136,6 @@ class ManagementNodeServiceImplTest {
 
         ManagementNodeException ex =
                 assertThrows(ManagementNodeException.class, () -> managementNodeService.signCertificate(request));
-        assertEquals("Failed to sign certificate", ex.getMessage());
+        assertTrue(ex.getMessage().startsWith("Failed to sign certificate [POST "), ex.getMessage());
     }
 }

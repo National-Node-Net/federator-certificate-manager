@@ -16,12 +16,12 @@ import java.security.KeyStore;
 import java.security.PrivateKey;
 import java.security.cert.Certificate;
 import java.security.cert.X509Certificate;
-import java.util.ArrayList;
 import java.util.List;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import uk.gov.dbt.ndtp.federator.certificate.manager.exception.KeyStoreCreationException;
 import uk.gov.dbt.ndtp.federator.certificate.manager.exception.PkiException;
+import uk.gov.dbt.ndtp.federator.certificate.manager.service.pki.cryptography.CertificateChainBuilder;
 import uk.gov.dbt.ndtp.federator.certificate.manager.service.pki.cryptography.PemUtil;
 
 @Slf4j
@@ -31,10 +31,12 @@ public class KeyStoreService {
 
     /**
      * Creates a PKCS12 keystore containing a private key and its certificate chain.
+     * The chain is ordered from the leaf up through its issuers (see {@link CertificateChainBuilder}), so the CA chain
+     * may be given in any order and may contain certificates that are not on the leaf's issuing path.
      *
      * @param privateKeyPem the private key in PEM format
      * @param certificatePem the leaf certificate in PEM format
-     * @param caChain the list of CA certificates in PEM format
+     * @param caChain the list of CA certificates in PEM format, in any order
      * @param password the password for the keystore
      * @param alias the alias for the key entry
      * @return the serialized PKCS12 keystore as a byte array
@@ -44,15 +46,7 @@ public class KeyStoreService {
             String privateKeyPem, String certificatePem, List<String> caChain, String password, String alias) {
         try {
             PrivateKey privateKey = PemUtil.parsePkcs8PrivateKey(privateKeyPem);
-            X509Certificate cert = PemUtil.parseCertificate(certificatePem);
-
-            List<Certificate> chain = new ArrayList<>();
-            chain.add(cert);
-            if (caChain != null) {
-                for (String caPem : caChain) {
-                    chain.add(PemUtil.parseCertificate(caPem));
-                }
-            }
+            List<X509Certificate> chain = CertificateChainBuilder.build(certificatePem, caChain);
 
             KeyStore ks = KeyStore.getInstance(PKCS12);
             ks.load(null, null);

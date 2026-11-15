@@ -18,9 +18,11 @@ import java.security.KeyPairGenerator;
 import java.security.KeyStore;
 import java.security.PrivateKey;
 import java.security.PublicKey;
+import java.security.cert.Certificate;
 import java.security.cert.X509Certificate;
 import java.util.Date;
 import java.util.List;
+import java.util.stream.Stream;
 import org.bouncycastle.asn1.x500.X500Name;
 import org.bouncycastle.cert.X509v3CertificateBuilder;
 import org.bouncycastle.cert.jcajce.JcaX509CertificateConverter;
@@ -30,10 +32,17 @@ import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import uk.gov.dbt.ndtp.federator.certificate.manager.exception.KeyStoreCreationException;
 import uk.gov.dbt.ndtp.federator.certificate.manager.service.pki.cryptography.PemUtil;
+import uk.gov.dbt.ndtp.federator.certificate.manager.service.pki.cryptography.TestPkiHierarchy;
 
 class KeyStoreServiceTest {
+
+    /** root -> intermediate -> leaf, shared because RSA key generation is slow. */
+    private static final TestPkiHierarchy PKI = new TestPkiHierarchy();
 
     private KeyStoreService keyStoreService;
     private KeyPair caKeyPair;
@@ -107,6 +116,37 @@ class KeyStoreServiceTest {
 
         assertTrue(ks.containsAlias(alias));
         assertEquals(1, ks.getCertificateChain(alias).length);
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("caChainsForThreeLevelPki")
+    void createKeyStore_ordersCaChainFromLeafToRoot(String description, List<String> caChain, int expectedLength)
+            throws Exception {
+        byte[] ksBytes =
+                keyStoreService.createKeyStore(PKI.leaf.privateKeyPem(), PKI.leaf.pem(), caChain, "pw", "alias");
+
+        KeyStore ks = KeyStore.getInstance("PKCS12");
+        ks.load(new ByteArrayInputStream(ksBytes), "pw".toCharArray());
+        List<Certificate> expected = List.<Certificate>of(
+                        PKI.leaf.certificate(), PKI.intermediate.certificate(), PKI.root.certificate())
+                .subList(0, expectedLength);
+        assertEquals(expected, List.of(ks.getCertificateChain("alias")));
+    }
+
+    static Stream<Arguments> caChainsForThreeLevelPki() {
+        String otherCa = TestPkiHierarchy.selfSigned("CN=Other Federator CA").pem();
+        return Stream.of(
+                Arguments.of("single issuer", List.of(PKI.intermediate.pem()), 2),
+                Arguments.of("ordered chain", List.of(PKI.intermediate.pem(), PKI.root.pem()), 3),
+                Arguments.of("out-of-order chain", List.of(PKI.root.pem(), PKI.intermediate.pem()), 3),
+                Arguments.of(
+                        "out-of-order chain with unrelated CA",
+                        List.of(PKI.root.pem(), otherCa, PKI.intermediate.pem()),
+                        3),
+                Arguments.of(
+                        "chain with duplicates",
+                        List.of(PKI.intermediate.pem(), PKI.root.pem(), PKI.intermediate.pem()),
+                        3));
     }
 
     @Test
