@@ -46,6 +46,14 @@ class PkiServiceTest {
     }
 
     @Test
+    void createKeyPair_nonRsaAlgorithm_usesGeneratorDefaults() {
+        CreateKeyResponseDTO response = pkiService.createKeyPair("EC", 2048);
+
+        assertEquals("EC", response.getAlgorithm());
+        assertTrue(response.getPublicKeyPem().contains("-----BEGIN PUBLIC KEY-----"));
+    }
+
+    @Test
     void createKeyPair_throwsForInvalidAlgorithm() {
         assertThrows(PkiException.class, () -> pkiService.createKeyPair("INVALID_ALGO", 2048));
     }

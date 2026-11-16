@@ -6,7 +6,7 @@ spring:
   cloud:
     vault:
       uri: ${VAULT_URI:http://localhost:8200}
-      token: ${VAULT_TOKEN:}
+      token: ${VAULT_TOKEN:-}
       authentication: ${VAULT_AUTHENTICATION:token}
       kubernetes:
         role: ${VAULT_AUTH_ROLE:certificate-manager}
@@ -16,8 +16,8 @@ application:
     pki-mount: ${VAULT_PKI_MOUNT:pki-client}
     secret-path: ${VAULT_SECRET_PATH:node-net/client}
   client:
-    key-store: ${MTLS_KEYSTORE_PATH:/home/developer/Downloads/managementNode/docker/mtls-keystore.p12}
-    trust-store: ${MTLS_TRUSTSTORE_PATH:/home/developer/Downloads/managementNode/docker/mtls-truststore.p12}
+    key-store: ${MTLS_KEYSTORE_PATH:mtls-keystore.p12}
+    trust-store: ${MTLS_TRUSTSTORE_PATH:mtls-truststore.p12}
     key-store-password: ${MTLS_KEYSTORE_PASSWORD:changeit}
     trust-store-password: ${MTLS_TRUSTSTORE_PASSWORD:changeit}
     key-store-type: ${MTLS_KEYSTORE_TYPE:PKCS12}

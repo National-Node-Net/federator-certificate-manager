@@ -25,6 +25,7 @@ import org.springframework.vault.support.VaultMount;
 import org.springframework.vault.support.Versioned;
 import uk.gov.dbt.ndtp.federator.certificate.manager.exception.VaultException;
 import uk.gov.dbt.ndtp.federator.certificate.manager.model.dto.CreateKeyResponseDTO;
+import uk.gov.dbt.ndtp.federator.certificate.manager.util.ExternalCallErrors;
 
 /**
  * Implementation of {@link VaultSecretProvider} for persisting key pairs to HashiCorp Vault.
@@ -166,8 +167,7 @@ public class VaultSecretProviderImpl implements VaultSecretProvider {
             }
             return null;
         } catch (Exception e) {
-            log.error("Failed to retrieve certificate from Vault at path {}/{}", mountPath, relativePath, e);
-            throw new VaultException("Vault retrieval failed", e);
+            throw vaultFailure("Failed to retrieve certificate from Vault", mountPath, relativePath, e);
         }
     }
 
@@ -195,8 +195,7 @@ public class VaultSecretProviderImpl implements VaultSecretProvider {
                     .privateKeyPem(privateKey)
                     .build();
         } catch (Exception e) {
-            log.error("Failed to retrieve key pair from Vault at path {}/{}", mountPath, relativePath, e);
-            throw new VaultException("Vault retrieval failed", e);
+            throw vaultFailure("Failed to retrieve key pair from Vault", mountPath, relativePath, e);
         }
     }
 
@@ -217,8 +216,7 @@ public class VaultSecretProviderImpl implements VaultSecretProvider {
             String chainStr = (String) versioned.getData().get("chain");
             return splitPemChain(chainStr);
         } catch (Exception e) {
-            log.error("Failed to retrieve CA chain from Vault at path {}/{}", mountPath, relativePath, e);
-            throw new VaultException("Vault retrieval failed", e);
+            throw vaultFailure("Failed to retrieve CA chain from Vault", mountPath, relativePath, e);
         }
     }
 
@@ -260,8 +258,7 @@ public class VaultSecretProviderImpl implements VaultSecretProvider {
             }
             return null;
         } catch (Exception e) {
-            log.error("Failed to retrieve Intermediate CA from Vault at path {}/{}", mountPath, relativePath, e);
-            throw new VaultException("Vault retrieval failed", e);
+            throw vaultFailure("Failed to retrieve Intermediate CA from Vault", mountPath, relativePath, e);
         }
     }
 
@@ -291,8 +288,7 @@ public class VaultSecretProviderImpl implements VaultSecretProvider {
             }
             return versioned.getData();
         } catch (Exception e) {
-            log.error("Failed to retrieve secret from Vault at path {}/{}", mountPath, relativePath, e);
-            throw new VaultException("Vault retrieval failed", e);
+            throw vaultFailure("Failed to retrieve secret from Vault", mountPath, relativePath, e);
         }
     }
 
@@ -307,8 +303,7 @@ public class VaultSecretProviderImpl implements VaultSecretProvider {
             vaultTemplate.opsForVersionedKeyValue(kvPath.mount()).put(kvPath.relativePath(), secret);
             log.info("Successfully persisted secret to Vault path {}/{}.", kvPath.mount(), kvPath.relativePath());
         } catch (Exception e) {
-            log.error("Failed to persist secret to Vault at path {}/{}", kvPath.mount(), kvPath.relativePath(), e);
-            throw new VaultException("Vault persistence failed", e);
+            throw vaultFailure("Failed to persist secret to Vault", kvPath.mount(), kvPath.relativePath(), e);
         }
     }
 
@@ -327,8 +322,7 @@ public class VaultSecretProviderImpl implements VaultSecretProvider {
             }
             return versioned.getData();
         } catch (Exception e) {
-            log.error("Failed to retrieve secret from Vault at path {}/{}", kvPath.mount(), kvPath.relativePath(), e);
-            throw new VaultException("Vault retrieval failed", e);
+            throw vaultFailure("Failed to retrieve secret from Vault", kvPath.mount(), kvPath.relativePath(), e);
         }
     }
 
@@ -338,9 +332,20 @@ public class VaultSecretProviderImpl implements VaultSecretProvider {
             kv.put(relativePath, data);
             log.info("Successfully persisted {} to Vault.", type);
         } catch (Exception e) {
-            log.error("Failed to persist {} to Vault at path {}/{}", type, mountPath, relativePath, e);
-            throw new VaultException("Vault persistence failed", e);
+            throw vaultFailure("Failed to persist " + type + " to Vault", mountPath, relativePath, e);
         }
+    }
+
+    /**
+     * Builds an exception whose message carries the Vault path and the reason the call failed (e.g.
+     * {@code Status 403 Forbidden [secret/data/x]: permission denied}). Each failed attempt is logged on one line; the
+     * full stack trace is logged once by the job when all retries have been used up.
+     */
+    private static VaultException vaultFailure(String operation, String mount, String relativePath, Exception cause) {
+        String message =
+                operation + " [" + mount + STRING_DELIMITER + relativePath + "]: " + ExternalCallErrors.describe(cause);
+        log.warn("Vault call failed. {}", message);
+        return new VaultException(message, cause);
     }
 
     /**
@@ -363,7 +368,7 @@ public class VaultSecretProviderImpl implements VaultSecretProvider {
         try {
             VaultSysOperations sys = vaultTemplate.opsForSys();
             Map<String, VaultMount> mounts = sys.getMounts();
-            String key = mount.endsWith(STRING_DELIMITER) ? mount : mount + STRING_DELIMITER;
+            String key = mount + STRING_DELIMITER; // mount names never contain '/'; sys/mounts keys end with one
             if (!mounts.containsKey(key)) {
                 log.error("Vault mount '{}' not found. Please provision KV v2 at this path.", key);
                 throw new VaultException("Vault mount '" + key + "' not found. Required for secret persistence.");
@@ -372,8 +377,10 @@ public class VaultSecretProviderImpl implements VaultSecretProvider {
         } catch (VaultException e) {
             throw e;
         } catch (Exception e) {
-            log.error("Failed to ensure KV mount exists at '{}'", mount, e);
-            throw new VaultException("Failed to verify KV mount existence", e);
+            String message = "Failed to verify that KV mount '" + mount + "' exists in Vault (listing sys/mounts): "
+                    + ExternalCallErrors.describe(e);
+            log.warn("Vault call failed. {}", message);
+            throw new VaultException(message, e);
         }
     }
 

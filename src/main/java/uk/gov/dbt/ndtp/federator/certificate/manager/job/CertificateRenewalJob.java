@@ -11,6 +11,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import uk.gov.dbt.ndtp.federator.certificate.manager.service.CertificateManagerService;
+import uk.gov.dbt.ndtp.federator.certificate.manager.util.ExternalCallErrors;
 
 /**
  * Job responsible for periodically checking and renewing certificates.
@@ -33,7 +34,12 @@ public class CertificateRenewalJob {
         try {
             certificateManagerService.run();
         } catch (Exception e) {
-            log.error("Error during certificate renewal job execution: {}", e.getMessage(), e);
+            // Single place where the full stack trace is logged; the headline states what failed and why.
+            log.error(
+                    "Certificate renewal job failed: {} | cause: {}",
+                    e.getMessage(),
+                    ExternalCallErrors.describe(e),
+                    e);
         }
     }
 }

@@ -12,6 +12,7 @@ import org.springframework.cache.CacheManager;
 import org.springframework.stereotype.Service;
 import uk.gov.dbt.ndtp.federator.certificate.manager.config.CacheConfig;
 import uk.gov.dbt.ndtp.federator.certificate.manager.exception.OAuth2TokenException;
+import uk.gov.dbt.ndtp.federator.certificate.manager.util.ExternalCallErrors;
 
 /**
  * Service for caching and managing the lifecycle of the OAuth2 access token.
@@ -81,7 +82,8 @@ public class TokenCacheServiceImpl implements TokenCacheService {
             }
             return response.getAccessToken();
         } catch (Exception e) {
-            log.error("Failed to refresh token", e);
+            // The cause is logged in full by the caller; repeating the stack trace here only adds noise.
+            log.warn("Failed to refresh OAuth2 token: {}", ExternalCallErrors.describe(e));
             // Invalidate cache on failure to ensure next getToken() tries again
             Cache cache = cacheManager.getCache(CacheConfig.TOKEN_CACHE);
             if (cache != null) {

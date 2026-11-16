@@ -33,6 +33,7 @@ import uk.gov.dbt.ndtp.federator.certificate.manager.config.CertificatePropertie
 import uk.gov.dbt.ndtp.federator.certificate.manager.config.CertificateProperties.StoreLocation;
 import uk.gov.dbt.ndtp.federator.certificate.manager.exception.RestClientConfigurationException;
 import uk.gov.dbt.ndtp.federator.certificate.manager.service.pki.VaultSecretProvider;
+import uk.gov.dbt.ndtp.federator.certificate.manager.service.pki.cryptography.TestPkiHierarchy;
 
 @ExtendWith(MockitoExtension.class)
 class MtlsHttpClientBuilderTest {
@@ -151,6 +152,61 @@ class MtlsHttpClientBuilderTest {
         CloseableHttpClient httpClient = builder.buildHttpClient();
 
         assertNotNull(httpClient);
+    }
+
+    @Test
+    void buildConnectionManager_syncedStore_blankDestinationPasswordsFallBackToVault() {
+        setClientPasswords(WRONG_PASSWORD);
+        Destination destination = destination(tempDir);
+        destination.setKeystorePassword("  ");
+        destination.setTruststorePassword("  ");
+        when(certificateProperties.getDestination()).thenReturn(destination);
+        when(vaultSecretProvider.getSecret(any())).thenReturn(Map.of(PASSWORD, PASSWORD));
+
+        assertNotNull(builder.buildConnectionManager());
+        verify(vaultSecretProvider, times(2)).getSecret(any());
+    }
+
+    @Test
+    void buildConnectionManager_destinationWithoutPath_usesClientPassword() {
+        Destination destination = destination(tempDir);
+        destination.getFile().setPath(" ");
+        when(certificateProperties.getDestination()).thenReturn(destination);
+
+        assertNotNull(builder.buildConnectionManager());
+        verifyNoInteractions(vaultSecretProvider);
+    }
+
+    @Test
+    void buildConnectionManager_destinationWithoutStoreFileNames_usesClientPassword() {
+        Destination destination = destination(tempDir);
+        destination.getFile().setKeystoreFile(null);
+        destination.getFile().setTruststoreFile(null);
+        when(certificateProperties.getDestination()).thenReturn(destination);
+
+        assertNotNull(builder.buildConnectionManager());
+        verifyNoInteractions(vaultSecretProvider);
+    }
+
+    @Test
+    void buildConnectionManager_withoutKeyStorePath_throws() {
+        ReflectionTestUtils.setField(builder, "keyStorePath", null);
+        when(certificateProperties.getDestination()).thenReturn(destination(tempDir));
+
+        assertThrows(RestClientConfigurationException.class, () -> builder.buildConnectionManager());
+    }
+
+    @Test
+    void buildConnectionManager_withTrustedCertificates_loadsThem() throws Exception {
+        KeyStore trustStore = KeyStore.getInstance(TYPE);
+        trustStore.load(null, null);
+        trustStore.setCertificateEntry("ca-0", new TestPkiHierarchy().root.certificate());
+        try (FileOutputStream fos =
+                new FileOutputStream(tempDir.resolve(TRUSTSTORE_FILE).toFile())) {
+            trustStore.store(fos, PASSWORD.toCharArray());
+        }
+
+        assertNotNull(builder.buildConnectionManager(PASSWORD, PASSWORD));
     }
 
     private void setClientPasswords(String password) {
