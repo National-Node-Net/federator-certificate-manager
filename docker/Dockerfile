@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 # © Crown Copyright 2026. This work has been developed by the National Digital Twin Programme and is legally
-# attributed to the Department for Business and Trade (UK) as the governing entity.
+# attributed to the UK's Department for Business, Innovation, Science and Trade (BIST) as the governing entity.
 #
 
 # Build stage
@@ -22,6 +22,8 @@ RUN mvn -B clean package -DskipTests
 # Name this stage so CI can target it (matches --target federator-certificate-manager in workflows)
 FROM eclipse-temurin:21-jdk-alpine AS federator-certificate-manager
 
+# Patch OS-level packages to pick up latest security fixes (Trivy)
+RUN apk update && apk upgrade --no-cache
 
 # Create non-root user and group
 RUN addgroup -S app && adduser -S -G app -u 10001 app

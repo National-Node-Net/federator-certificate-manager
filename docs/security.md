@@ -16,8 +16,8 @@ graph TB
     end
 
     subgraph "Client Credentials"
-        JKS_KS["keystore.jks<br/>(client private key + cert)"]
-        JKS_TS["truststore.jks<br/>(trusted CA certs)"]
+        P12_KS["mtls-keystore.p12<br/>(client private key + cert)"]
+        P12_TS["mtls-truststore.p12<br/>(trusted CA certs)"]
     end
 
     subgraph "External Services"
@@ -26,8 +26,8 @@ graph TB
         VAULT["HashiCorp Vault"]
     end
 
-    JKS_KS --> RC
-    JKS_TS --> RC
+    P12_KS --> RC
+    P12_TS --> RC
     RC --> OTS
     RC --> MNS
     OTS -- "mTLS + client_credentials" --> IDP
@@ -52,9 +52,9 @@ sequenceDiagram
 
     CM->>Server: TLS ClientHello
     Server-->>CM: TLS ServerHello + Server Certificate
-    CM->>CM: Validate server cert against truststore.jks
+    CM->>CM: Validate server cert against mtls-truststore.p12
     Server->>CM: CertificateRequest
-    CM-->>Server: Client Certificate (from keystore.jks)
+    CM-->>Server: Client Certificate (from mtls-keystore.p12)
     Server->>Server: Validate client cert
     Note over CM,Server: TLS handshake complete (mutual authentication)
     CM->>Server: HTTP request (encrypted)
@@ -76,11 +76,11 @@ The mTLS `SSLContext` is built in `RestClientConfig`:
 ```yaml
 application:
   client:
-    key-store: /etc/certs/keystore.jks        # Client identity
+    key-store: /etc/certs/mtls-keystore.p12     # Client identity
     key-store-password: ${KEYSTORE_PASSWORD}
-    trust-store: /etc/certs/truststore.jks     # Trusted CAs
+    trust-store: /etc/certs/mtls-truststore.p12 # Trusted CAs
     trust-store-password: ${TRUSTSTORE_PASSWORD}
-    key-store-type: JKS                        # JKS or PKCS12
+    key-store-type: PKCS12                      # PKCS12 (.p12)
 ```
 
 ### Important Distinction
@@ -89,7 +89,7 @@ There are **two sets of keystores** in this system:
 
 | Keystore | Format | Purpose | Managed By |
 |----------|--------|---------|------------|
-| **Input** keystore.jks / truststore.jks | JKS | mTLS client identity for outbound calls | Operator (pre-provisioned) |
+| **Input** mtls-keystore.p12 / mtls-truststore.p12 | PKCS#12 | mTLS client identity for outbound calls | Operator (pre-provisioned) |
 | **Output** keystore.p12 / truststore.p12 | PKCS#12 | Generated certificates for federator services | Certificate Manager (automated) |
 
 The input keystores authenticate the Certificate Manager itself. The output keystores are the product of the certificate lifecycle management.
@@ -289,6 +289,6 @@ chown app-user:app-group /etc/federator/secrets/*
 - Vault communication should use HTTPS in production (configure `spring.cloud.vault.ssl.*`)
 - No inbound network listeners — the application does not expose any HTTP endpoints
 
-© Crown Copyright 2026. This work has been developed by the National Digital Twin Programme and is legally attributed to the Department for Business and Trade (UK) as the governing entity.
+© Crown Copyright 2026. This work has been developed by the National Digital Twin Programme and is legally attributed to the UK's Department for Business, Innovation, Science and Trade (BIST) as the governing entity.
   
 Licensed under the Open Government Licence v3.0.  

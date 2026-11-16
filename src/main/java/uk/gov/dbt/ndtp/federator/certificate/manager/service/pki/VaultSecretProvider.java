@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  * © Crown Copyright 2026. This work has been developed by the National Digital Twin Programme and is legally
- * attributed to the Department for Business and Trade (UK) as the governing entity.
+ * attributed to the UK's Department for Business, Innovation, Science and Trade (BIST) as the governing entity.
  */
 
 package uk.gov.dbt.ndtp.federator.certificate.manager.service.pki;
@@ -98,4 +98,20 @@ public interface VaultSecretProvider {
      * @throws VaultException if retrieval fails
      */
     Map<String, Object> getSecret(String suffix);
+
+    /**
+     * Persists a secret to an arbitrary KV v2 path, creating a new version.
+     * @param path the full secret path whose first segment is the KV v2 mount (e.g. {@code secret/app/federator})
+     * @param secret the secret data as a map
+     * @throws VaultException if the path is invalid, the mount is missing or persistence fails
+     */
+    void persistSecretAtPath(String path, Map<String, String> secret);
+
+    /**
+     * Retrieves the latest version of a secret from an arbitrary KV v2 path.
+     * @param path the full secret path whose first segment is the KV v2 mount (e.g. {@code secret/app/federator})
+     * @return the secret data as a map, or an empty map if not found
+     * @throws VaultException if the path is invalid, the mount is missing or retrieval fails
+     */
+    Map<String, Object> getSecretAtPath(String path);
 }

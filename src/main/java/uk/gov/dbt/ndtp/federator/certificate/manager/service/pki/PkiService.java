@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  * © Crown Copyright 2026. This work has been developed by the National Digital Twin Programme and is legally
- * attributed to the Department for Business and Trade (UK) as the governing entity.
+ * attributed to the UK's Department for Business, Innovation, Science and Trade (BIST) as the governing entity.
  */
 
 package uk.gov.dbt.ndtp.federator.certificate.manager.service.pki;
@@ -89,15 +89,17 @@ public class PkiService {
             PrivateKey privateKey = PemUtil.parsePkcs8PrivateKey(privateKeyPem);
             var publicKey = PemUtil.parsePublicKey(publicKeyPem);
 
-            // Build subject including State (ST) and Locality (L)
-            String subject = String.format(
-                    "C=%s, ST=%s, L=%s, O=%s, OU=%s, CN=%s",
-                    safe(req.getCountry()),
-                    safe(req.getState()),
-                    safe(req.getLocality()),
-                    safe(req.getOrganization()),
-                    safe(req.getOrganizationalUnit()),
-                    safe(req.getCommonName()));
+            // Build subject including State (ST) and Locality (L); blank RDNs are omitted
+            // (Bouncy Castle 1.85+ rejects empty values such as a zero-length country code).
+            String subject = java.util.stream.Stream.of(
+                            rdn("C", req.getCountry()),
+                            rdn("ST", req.getState()),
+                            rdn("L", req.getLocality()),
+                            rdn("O", req.getOrganization()),
+                            rdn("OU", req.getOrganizationalUnit()),
+                            rdn("CN", req.getCommonName()))
+                    .filter(java.util.Objects::nonNull)
+                    .collect(java.util.stream.Collectors.joining(", "));
             X500Name x500 = new X500Name(subject);
 
             // CSR builder
@@ -136,5 +138,10 @@ public class PkiService {
      */
     private static String safe(String s) {
         return (s == null) ? "" : s.replace(",", " ");
+    }
+
+    private static String rdn(String type, String value) {
+        String v = safe(value).trim();
+        return v.isEmpty() ? null : type + "=" + v;
     }
 }
