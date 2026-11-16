@@ -11,8 +11,8 @@ import org.springframework.cache.Cache;
 import org.springframework.cache.CacheManager;
 import org.springframework.stereotype.Service;
 import uk.gov.dbt.ndtp.federator.certificate.manager.config.CacheConfig;
-import uk.gov.dbt.ndtp.federator.certificate.manager.exception.ExternalCallErrors;
 import uk.gov.dbt.ndtp.federator.certificate.manager.exception.OAuth2TokenException;
+import uk.gov.dbt.ndtp.federator.certificate.manager.util.ExternalCallErrors;
 
 /**
  * Service for caching and managing the lifecycle of the OAuth2 access token.

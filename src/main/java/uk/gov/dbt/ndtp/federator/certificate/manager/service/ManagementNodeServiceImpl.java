@@ -16,12 +16,12 @@ import org.springframework.http.client.HttpComponentsClientHttpRequestFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 import uk.gov.dbt.ndtp.federator.certificate.manager.client.MtlsHttpClientBuilder;
-import uk.gov.dbt.ndtp.federator.certificate.manager.exception.ExternalCallErrors;
 import uk.gov.dbt.ndtp.federator.certificate.manager.exception.ManagementNodeException;
 import uk.gov.dbt.ndtp.federator.certificate.manager.model.dto.CertificateResponseDTO;
 import uk.gov.dbt.ndtp.federator.certificate.manager.model.dto.SignCertRequestDTO;
 import uk.gov.dbt.ndtp.federator.certificate.manager.model.dto.SignCertResponseDTO;
 import uk.gov.dbt.ndtp.federator.certificate.manager.service.idp.TokenCacheService;
+import uk.gov.dbt.ndtp.federator.certificate.manager.util.ExternalCallErrors;
 
 /**
  * Implementation of the ManagementNodeService for interacting with Management Node APIs.

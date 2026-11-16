@@ -20,8 +20,8 @@ import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestClient;
 import uk.gov.dbt.ndtp.federator.certificate.manager.client.MtlsHttpClientBuilder;
-import uk.gov.dbt.ndtp.federator.certificate.manager.exception.ExternalCallErrors;
 import uk.gov.dbt.ndtp.federator.certificate.manager.exception.OAuth2TokenException;
+import uk.gov.dbt.ndtp.federator.certificate.manager.util.ExternalCallErrors;
 
 /**
  * Service for requesting OAuth2 tokens from Keycloak using client credentials grant.

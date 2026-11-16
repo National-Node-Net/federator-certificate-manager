@@ -4,20 +4,26 @@
  * attributed to the UK's Department for Business, Innovation, Science and Trade (BIST) as the governing entity.
  */
 
-package uk.gov.dbt.ndtp.federator.certificate.manager.exception;
+package uk.gov.dbt.ndtp.federator.certificate.manager.util;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.net.ConnectException;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.HttpServerErrorException;
 import org.springframework.web.client.ResourceAccessException;
+import org.springframework.web.client.RestClientResponseException;
+import uk.gov.dbt.ndtp.federator.certificate.manager.exception.ManagementNodeException;
+import uk.gov.dbt.ndtp.federator.certificate.manager.exception.OAuth2TokenException;
 
 class ExternalCallErrorsTest {
 
@@ -87,5 +93,52 @@ class ExternalCallErrorsTest {
 
         assertSame(root, ExternalCallErrors.rootCause(top));
         assertSame(root, ExternalCallErrors.rootCause(root));
+    }
+
+    @Test
+    void describe_httpErrorWithoutReasonPhrase_usesStandardReasonForStatus() {
+        RestClientResponseException error =
+                new RestClientResponseException("failed", HttpStatus.NOT_FOUND, "", null, null, null);
+
+        assertEquals("HTTP 404 Not Found", ExternalCallErrors.describe(error));
+    }
+
+    @Test
+    void describe_httpErrorWithNullReasonPhrase_usesStandardReasonForStatus() {
+        RestClientResponseException error =
+                new RestClientResponseException("failed", HttpStatus.UNAUTHORIZED, null, null, null, null);
+
+        assertEquals("HTTP 401 Unauthorized", ExternalCallErrors.describe(error));
+    }
+
+    @Test
+    void describe_httpErrorWithNonStandardStatus_showsStatusCodeOnly() {
+        RestClientResponseException error = new RestClientResponseException("failed", 599, "", null, null, null);
+
+        assertEquals("HTTP 599", ExternalCallErrors.describe(error));
+    }
+
+    @Test
+    void describe_exceptionWithBlankMessage_showsClassName() {
+        assertEquals("IllegalStateException", ExternalCallErrors.describe(new IllegalStateException("  ")));
+    }
+
+    @Test
+    void describe_multiLineMessage_isJoinedOnOneLine() {
+        assertEquals(
+                "IllegalStateException: first line second line",
+                ExternalCallErrors.describe(new IllegalStateException("first line\n   second line\n")));
+    }
+
+    @Test
+    void describe_causeCycle_terminates() {
+        IllegalStateException first = new IllegalStateException("first");
+        IllegalArgumentException second = new IllegalArgumentException("second");
+        first.initCause(second);
+        second.initCause(first);
+
+        String description = assertTimeoutPreemptively(Duration.ofSeconds(5), () -> ExternalCallErrors.describe(first));
+
+        assertNotNull(description);
     }
 }

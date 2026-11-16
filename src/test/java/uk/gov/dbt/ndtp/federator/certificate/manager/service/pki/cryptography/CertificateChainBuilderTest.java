@@ -113,6 +113,17 @@ class CertificateChainBuilderTest {
     }
 
     @Test
+    void build_withSameNameButSignedByAnotherKey_isNotTreatedAsSelfSigned() {
+        // Subject and issuer names are equal, but the root's key signed it (e.g. a re-keyed root cross-signed by the
+        // old one), so the walk must continue to the real issuer
+        TestPkiHierarchy.Issued crossSigned = TestPkiHierarchy.issue("CN=Test Root CA", pki.root);
+
+        List<X509Certificate> chain = CertificateChainBuilder.build(crossSigned.pem(), List.of(pki.root.pem()));
+
+        assertEquals(List.of(crossSigned.certificate(), root), chain);
+    }
+
+    @Test
     void build_withInvalidCaPem_throwsPkiException() {
         List<String> caChain = List.of("not a certificate");
         String leafPem = pki.leaf.pem();

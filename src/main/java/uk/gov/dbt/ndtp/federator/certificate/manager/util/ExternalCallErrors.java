@@ -4,7 +4,7 @@
  * attributed to the UK's Department for Business, Innovation, Science and Trade (BIST) as the governing entity.
  */
 
-package uk.gov.dbt.ndtp.federator.certificate.manager.exception;
+package uk.gov.dbt.ndtp.federator.certificate.manager.util;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.web.client.RestClientResponseException;
@@ -17,6 +17,12 @@ import org.springframework.web.client.RestClientResponseException;
 public final class ExternalCallErrors {
 
     static final int MAX_BODY_LENGTH = 500;
+
+    /**
+     * Limit on how far a cause chain is followed. {@link Throwable#getCause()} never returns the throwable itself, but
+     * a longer cycle (A caused by B caused by A) is possible, so the walk stops here.
+     */
+    private static final int MAX_CAUSE_DEPTH = 50;
 
     private ExternalCallErrors() {}
 
@@ -53,7 +59,7 @@ public final class ExternalCallErrors {
     public static Throwable rootCause(Throwable throwable) {
         Throwable current = throwable;
         int depth = 0;
-        while (current.getCause() != null && current.getCause() != current && depth++ < 50) {
+        while (current.getCause() != null && depth++ < MAX_CAUSE_DEPTH) {
             current = current.getCause();
         }
         return current;
@@ -80,12 +86,9 @@ public final class ExternalCallErrors {
     private static <T extends Throwable> T findCause(Throwable throwable, Class<T> type) {
         Throwable current = throwable;
         int depth = 0;
-        while (current != null && depth++ < 50) {
+        while (current != null && depth++ < MAX_CAUSE_DEPTH) {
             if (type.isInstance(current)) {
                 return type.cast(current);
-            }
-            if (current.getCause() == current) {
-                break;
             }
             current = current.getCause();
         }

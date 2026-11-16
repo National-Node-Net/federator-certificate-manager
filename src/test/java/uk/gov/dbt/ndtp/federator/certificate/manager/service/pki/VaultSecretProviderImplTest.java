@@ -28,6 +28,8 @@ import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
@@ -411,6 +413,32 @@ class VaultSecretProviderImplTest {
     }
 
     @Test
+    void getCaChain_returnsEmptyWhenChainFieldMissing() {
+        when(kvOps.get("client/ca-chain")).thenReturn(Versioned.create(Map.of("other", "value")));
+
+        assertTrue(vaultSecretProvider.getCaChain().isEmpty());
+    }
+
+    @Test
+    void getCaChain_skipsBlankAndNonCertificateBlocks() {
+        String chain =
+                """
+                -----BEGIN CERTIFICATE-----
+                C1
+                -----END CERTIFICATE-----
+
+                -----END CERTIFICATE-----
+                not a certificate
+                -----END CERTIFICATE-----
+                """;
+        when(kvOps.get("client/ca-chain")).thenReturn(Versioned.create(Map.of("chain", chain)));
+
+        assertEquals(
+                List.of("-----BEGIN CERTIFICATE-----\nC1\n-----END CERTIFICATE-----\n"),
+                vaultSecretProvider.getCaChain());
+    }
+
+    @Test
     void getCertificate_returnsNullWhenDataIsNull() {
         Versioned<Map<String, Object>> versioned = mock(Versioned.class);
         when(versioned.getData()).thenReturn(null);
@@ -518,6 +546,23 @@ class VaultSecretProviderImplTest {
         when(kvOps.get("app/federator")).thenReturn(null);
 
         assertTrue(vaultSecretProvider.getSecretAtPath("node-net/app/federator").isEmpty());
+    }
+
+    @Test
+    void getSecretAtPath_returnsEmptyMapWhenDataIsNull() {
+        Versioned<Map<String, Object>> versioned = mock(Versioned.class);
+        when(versioned.getData()).thenReturn(null);
+        when(kvOps.get("app/federator")).thenReturn(versioned);
+
+        assertTrue(vaultSecretProvider.getSecretAtPath("node-net/app/federator").isEmpty());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"/ /app", "node-net/ /", "node-net"})
+    void getSecretAtPath_rejectsPathWithBlankOrMissingSegment(String path) {
+        VaultException e = assertThrows(VaultException.class, () -> vaultSecretProvider.getSecretAtPath(path));
+
+        assertTrue(e.getMessage().startsWith("Invalid Vault secret path"), e.getMessage());
     }
 
     @Test

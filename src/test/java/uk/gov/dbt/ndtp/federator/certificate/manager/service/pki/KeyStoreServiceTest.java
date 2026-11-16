@@ -16,6 +16,7 @@ import java.nio.file.Path;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.security.KeyStore;
+import java.security.KeyStoreException;
 import java.security.PrivateKey;
 import java.security.PublicKey;
 import java.security.cert.Certificate;
@@ -36,6 +37,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import uk.gov.dbt.ndtp.federator.certificate.manager.exception.KeyStoreCreationException;
+import uk.gov.dbt.ndtp.federator.certificate.manager.exception.PkiException;
 import uk.gov.dbt.ndtp.federator.certificate.manager.service.pki.cryptography.PemUtil;
 import uk.gov.dbt.ndtp.federator.certificate.manager.service.pki.cryptography.TestPkiHierarchy;
 
@@ -157,6 +159,45 @@ class KeyStoreServiceTest {
         assertThrows(
                 KeyStoreCreationException.class,
                 () -> keyStoreService.createKeyStore(privateKeyPem, leafPem, caChain, password, null));
+    }
+
+    @Test
+    void createKeyStore_invalidPrivateKey_propagatesPkiException() {
+        List<String> caChain = List.of(caPem);
+
+        assertThrows(
+                PkiException.class,
+                () -> keyStoreService.createKeyStore("not a key", leafPem, caChain, "test-password", "alias"));
+    }
+
+    @Test
+    void createTrustStore_invalidCaCertificate_propagatesPkiException() {
+        List<String> caChain = List.of("not a certificate");
+        Path trustStorePath = tempDir.resolve("truststore.p12");
+
+        assertThrows(PkiException.class, () -> keyStoreService.createTrustStore(caChain, "pw", trustStorePath));
+    }
+
+    @Test
+    void createTrustStore_nullPassword_failsToSerialize() {
+        List<String> caChain = List.of(caPem);
+
+        PkiException e = assertThrows(PkiException.class, () -> keyStoreService.createTrustStore(caChain, null, null));
+        assertEquals("Failed to serialize keystore", e.getMessage());
+    }
+
+    @Test
+    void createTrustStore_existingKeyEntryUnderCaAlias_wrapsKeyStoreError() throws Exception {
+        // A PKCS12 store refuses to replace a key entry with a certificate entry
+        String password = "trust-password";
+        Path trustStorePath = tempDir.resolve("truststore.p12");
+        Files.write(trustStorePath, keyStoreService.createKeyStore(privateKeyPem, leafPem, null, password, "ca-0"));
+        List<String> caChain = List.of(caPem);
+
+        PkiException e = assertThrows(
+                PkiException.class, () -> keyStoreService.createTrustStore(caChain, password, trustStorePath));
+        assertEquals("Failed to create truststore", e.getMessage());
+        assertInstanceOf(KeyStoreException.class, e.getCause());
     }
 
     @Test

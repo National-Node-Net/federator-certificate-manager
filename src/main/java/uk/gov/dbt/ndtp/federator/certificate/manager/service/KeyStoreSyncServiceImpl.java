@@ -430,11 +430,7 @@ public class KeyStoreSyncServiceImpl implements KeyStoreSyncService {
     }
 
     private void writePasswordToFile(Path storePath, String passwordFileName, String password) {
-        Path parentDir = storePath.getParent();
-        if (parentDir == null) {
-            parentDir = Paths.get(".");
-        }
-        Path passwordFile = parentDir.resolve(passwordFileName);
+        Path passwordFile = storePath.resolveSibling(passwordFileName);
 
         byte[] newPasswordBytes = password.getBytes(StandardCharsets.UTF_8);
         try {

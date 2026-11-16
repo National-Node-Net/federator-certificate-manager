@@ -15,7 +15,7 @@ import io.github.resilience4j.retry.Retry;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import uk.gov.dbt.ndtp.federator.certificate.manager.exception.ExternalCallErrors;
+import uk.gov.dbt.ndtp.federator.certificate.manager.util.ExternalCallErrors;
 
 /**
  * Logs what the retries and circuit breakers protecting the Management Node, Keycloak and Vault actually do: each

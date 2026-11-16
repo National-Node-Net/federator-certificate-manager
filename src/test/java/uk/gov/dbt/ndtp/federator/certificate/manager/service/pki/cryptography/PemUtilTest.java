@@ -422,4 +422,49 @@ class PemUtilTest {
         assertFalse(PemUtil.privateKeyMatchesCertificate("not a key", certPem));
         assertFalse(PemUtil.privateKeyMatchesCertificate(keyPem, "not a certificate"));
     }
+
+    @Test
+    void privateKeyMatchesCertificate_falseForRsaKeyAndEcCertificate() throws Exception {
+        String ecCertPem = certPemFor(generateKeyPair("EC"), "SHA256withECDSA");
+        String rsaKeyPem =
+                PemUtil.toPem("PRIVATE KEY", generateKeyPair("RSA").getPrivate().getEncoded());
+
+        assertFalse(PemUtil.privateKeyMatchesCertificate(rsaKeyPem, ecCertPem));
+    }
+
+    // --- remaining edge cases ---
+
+    @Test
+    void isValidityBelowThreshold_trueWhenValidityPeriodIsZero() throws Exception {
+        KeyPair kp = generateKeyPair("RSA");
+        X500Name name = new X500Name("CN=Zero");
+        Date instant = new Date((System.currentTimeMillis() / 1000) * 1000);
+        X509v3CertificateBuilder builder =
+                new JcaX509v3CertificateBuilder(name, BigInteger.ONE, instant, instant, name, kp.getPublic());
+        X509Certificate cert = new JcaX509CertificateConverter()
+                .getCertificate(builder.build(new JcaContentSignerBuilder("SHA256withRSA").build(kp.getPrivate())));
+
+        assertTrue(PemUtil.isValidityBelowThreshold(PemUtil.toPem("CERTIFICATE", cert.getEncoded()), 10.0));
+    }
+
+    @Test
+    void hasOtherNameSan_skipsSansOfOtherTypes() throws Exception {
+        String oid = "1.3.6.1.4.1.32473.1.1";
+        KeyPair kp = generateKeyPair("RSA");
+        X500Name name = new X500Name("CN=Test");
+        GeneralName dnsName = new GeneralName(GeneralName.dNSName, "api.example.com");
+        GeneralName otherName = new GeneralName(
+                GeneralName.otherName, new org.bouncycastle.asn1.DERSequence(new org.bouncycastle.asn1.ASN1Encodable[] {
+                    new ASN1ObjectIdentifier(oid), new DERTaggedObject(true, 0, new DERUTF8String("value"))
+                }));
+        long now = System.currentTimeMillis();
+        X509v3CertificateBuilder builder = new JcaX509v3CertificateBuilder(
+                name, BigInteger.valueOf(now), new Date(now), new Date(now + 100000), name, kp.getPublic());
+        builder.addExtension(
+                Extension.subjectAlternativeName, false, new GeneralNames(new GeneralName[] {dnsName, otherName}));
+        X509Certificate cert = new JcaX509CertificateConverter()
+                .getCertificate(builder.build(new JcaContentSignerBuilder("SHA256withRSA").build(kp.getPrivate())));
+
+        assertTrue(PemUtil.hasOtherNameSan(PemUtil.toPem("CERTIFICATE", cert.getEncoded()), oid));
+    }
 }

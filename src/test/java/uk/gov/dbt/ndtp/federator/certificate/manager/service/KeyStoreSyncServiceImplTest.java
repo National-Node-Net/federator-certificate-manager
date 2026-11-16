@@ -7,12 +7,16 @@
 package uk.gov.dbt.ndtp.federator.certificate.manager.service;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assumptions.assumeFalse;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 import java.io.ByteArrayInputStream;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.math.BigInteger;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -20,6 +24,7 @@ import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.security.KeyStore;
 import java.security.PublicKey;
+import java.security.cert.Certificate;
 import java.security.cert.X509Certificate;
 import java.time.Clock;
 import java.time.Instant;
@@ -1175,5 +1180,165 @@ class KeyStoreSyncServiceImplTest {
 
         // PKCS12 output is salted, so identical bytes mean the keystore was not rewritten
         assertArrayEquals(firstKeystore, Files.readAllBytes(tempDir.resolve("keystore.p12")));
+    }
+
+    // --- remaining branches: incomplete material ---
+
+    @Test
+    void syncKeyStores_skipsKeystoreWhenCertificateHasNoKeyPair() {
+        when(vaultSecretProvider.getCertificate()).thenReturn(certPem);
+        when(vaultSecretProvider.getKeyPair()).thenReturn(null);
+        when(vaultSecretProvider.getCaChain()).thenReturn(List.of(caPem));
+        when(keyStoreService.createTrustStore(any(), anyString(), any())).thenReturn(validTruststoreBytes);
+
+        keyStoreSyncService.syncKeyStores();
+
+        verify(keyStoreService, never()).createKeyStore(any(), any(), any(), any(), any());
+        assertFalse(Files.exists(tempDir.resolve("keystore.p12")));
+    }
+
+    @Test
+    void syncKeyStores_skipsTruststoreWhenCaChainNullAndIntermediateCaBlank() {
+        when(vaultSecretProvider.getCertificate()).thenReturn(null);
+        when(vaultSecretProvider.getKeyPair()).thenReturn(null);
+        when(vaultSecretProvider.getCaChain()).thenReturn(null);
+        when(vaultSecretProvider.getIntermediateCa()).thenReturn("  ");
+
+        keyStoreSyncService.syncKeyStores();
+
+        verify(keyStoreService, never()).createTrustStore(any(), any(), any());
+    }
+
+    // --- remaining branches: existing keystore file differs ---
+
+    @Test
+    void syncKeyStores_replacesUnreadableExistingKeystore() throws Exception {
+        Path keystorePath = tempDir.resolve("keystore.p12");
+        Files.write(keystorePath, validKeystoreBytes);
+        try {
+            Files.setPosixFilePermissions(keystorePath, Set.of());
+        } catch (UnsupportedOperationException e) {
+            assumeTrue(false, "POSIX file permissions not supported");
+        }
+        assumeFalse(Files.isReadable(keystorePath), "running as a user that can read any file (e.g. root)");
+        stubCertificateMaterial(certPem, privateKeyPem);
+
+        serviceWithRealStores().syncKeyStores();
+
+        assertTrue(loadKeyStoreFile(keystorePath, "ks-pass").isKeyEntry("federator"));
+    }
+
+    @Test
+    void syncKeyStores_rewritesKeystoreWhenAliasMissing() throws Exception {
+        Path keystorePath = tempDir.resolve("keystore.p12");
+        Files.write(
+                keystorePath,
+                realKeyStoreService.createKeyStore(privateKeyPem, certPem, List.of(caPem), "ks-pass", "other"));
+        stubCertificateMaterial(certPem, privateKeyPem);
+
+        serviceWithRealStores().syncKeyStores();
+
+        assertTrue(loadKeyStoreFile(keystorePath, "ks-pass").isKeyEntry("federator"));
+    }
+
+    @Test
+    void syncKeyStores_rewritesKeystoreWhenAliasHoldsOnlyACertificate() throws Exception {
+        Path keystorePath = tempDir.resolve("keystore.p12");
+        KeyStore existing = KeyStore.getInstance("PKCS12");
+        existing.load(null, null);
+        existing.setCertificateEntry("federator", PemUtil.parseCertificate(certPem));
+        writeKeyStoreFile(existing, keystorePath, "ks-pass");
+        stubCertificateMaterial(certPem, privateKeyPem);
+
+        serviceWithRealStores().syncKeyStores();
+
+        assertTrue(loadKeyStoreFile(keystorePath, "ks-pass").isKeyEntry("federator"));
+    }
+
+    @Test
+    void syncKeyStores_rewritesKeystoreWhenChainHasSameLengthButDifferentCa() throws Exception {
+        // Same name as the real CA but a different key, so the existing chain is the same length yet not equal
+        TestPkiHierarchy.Issued rekeyedCa = TestPkiHierarchy.selfSigned("CN=CA");
+        Path keystorePath = tempDir.resolve("keystore.p12");
+        KeyStore existing = KeyStore.getInstance("PKCS12");
+        existing.load(null, null);
+        existing.setKeyEntry(
+                "federator", PemUtil.parsePkcs8PrivateKey(privateKeyPem), "ks-pass".toCharArray(), new Certificate[] {
+                    PemUtil.parseCertificate(certPem), rekeyedCa.certificate()
+                });
+        writeKeyStoreFile(existing, keystorePath, "ks-pass");
+        stubCertificateMaterial(certPem, privateKeyPem);
+
+        serviceWithRealStores().syncKeyStores();
+
+        Certificate[] chain = loadKeyStoreFile(keystorePath, "ks-pass").getCertificateChain("federator");
+        assertEquals(PemUtil.parseCertificate(caPem), chain[1]);
+    }
+
+    // --- remaining branches: Vault destination ---
+
+    @Test
+    void syncKeyStores_vault_backfillsMissingUpdatedAtAndKeepsCreatedAt() {
+        certificateProperties.getDestination().setFile(null);
+        certificateProperties.getDestination().setVault(vaultLocation());
+        stubCertificateMaterial(certPem, privateKeyPem);
+        Map<String, Object> existing = inSyncVaultSecret();
+        existing.remove("updatedAt");
+        when(vaultSecretProvider.getSecretAtPath(VAULT_PATH)).thenReturn(existing);
+
+        serviceWithRealStores().syncKeyStores();
+
+        Map<String, String> secret = capturePersistedVaultSecret();
+        assertEquals("2026-10-01T08:00:00Z", secret.get("createdAt"));
+        assertEquals("2026-10-22T09:30:00Z", secret.get("updatedAt"));
+    }
+
+    @Test
+    void syncKeyStores_vault_skipsTruststoreWhenNoCaChain() {
+        certificateProperties.getDestination().setFile(null);
+        certificateProperties.getDestination().setVault(vaultLocation());
+        when(vaultSecretProvider.getCertificate()).thenReturn(certPem);
+        when(vaultSecretProvider.getKeyPair())
+                .thenReturn(CreateKeyResponseDTO.builder()
+                        .publicKeyPem("pub")
+                        .privateKeyPem(privateKeyPem)
+                        .build());
+        when(vaultSecretProvider.getCaChain()).thenReturn(List.of());
+        when(vaultSecretProvider.getSecretAtPath(VAULT_PATH)).thenReturn(Map.of());
+
+        serviceWithRealStores().syncKeyStores();
+
+        Map<String, String> secret = capturePersistedVaultSecret();
+        assertNotNull(secret.get("keystore.p12"));
+        assertFalse(secret.containsKey("truststore.p12"));
+    }
+
+    @Test
+    void syncKeyStores_vault_rebuildsKeystoreWhenStoredValueIsBlank() throws Exception {
+        certificateProperties.getDestination().setFile(null);
+        certificateProperties.getDestination().setVault(vaultLocation());
+        stubCertificateMaterial(certPem, privateKeyPem);
+        Map<String, Object> existing = inSyncVaultSecret();
+        existing.put("keystore.p12", " ");
+        when(vaultSecretProvider.getSecretAtPath(VAULT_PATH)).thenReturn(existing);
+
+        serviceWithRealStores().syncKeyStores();
+
+        Map<String, String> secret = capturePersistedVaultSecret();
+        assertTrue(loadBase64Store(secret.get("keystore.p12"), "ks-pass").isKeyEntry("federator"));
+    }
+
+    private static KeyStore loadKeyStoreFile(Path path, String password) throws Exception {
+        KeyStore ks = KeyStore.getInstance("PKCS12");
+        try (InputStream in = Files.newInputStream(path)) {
+            ks.load(in, password.toCharArray());
+        }
+        return ks;
+    }
+
+    private static void writeKeyStoreFile(KeyStore ks, Path path, String password) throws Exception {
+        try (OutputStream out = Files.newOutputStream(path)) {
+            ks.store(out, password.toCharArray());
+        }
     }
 }

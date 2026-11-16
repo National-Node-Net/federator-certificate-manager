@@ -23,9 +23,9 @@ import org.springframework.vault.core.VaultTemplate;
 import org.springframework.vault.core.VaultVersionedKeyValueOperations;
 import org.springframework.vault.support.VaultMount;
 import org.springframework.vault.support.Versioned;
-import uk.gov.dbt.ndtp.federator.certificate.manager.exception.ExternalCallErrors;
 import uk.gov.dbt.ndtp.federator.certificate.manager.exception.VaultException;
 import uk.gov.dbt.ndtp.federator.certificate.manager.model.dto.CreateKeyResponseDTO;
+import uk.gov.dbt.ndtp.federator.certificate.manager.util.ExternalCallErrors;
 
 /**
  * Implementation of {@link VaultSecretProvider} for persisting key pairs to HashiCorp Vault.
@@ -368,7 +368,7 @@ public class VaultSecretProviderImpl implements VaultSecretProvider {
         try {
             VaultSysOperations sys = vaultTemplate.opsForSys();
             Map<String, VaultMount> mounts = sys.getMounts();
-            String key = mount.endsWith(STRING_DELIMITER) ? mount : mount + STRING_DELIMITER;
+            String key = mount + STRING_DELIMITER; // mount names never contain '/'; sys/mounts keys end with one
             if (!mounts.containsKey(key)) {
                 log.error("Vault mount '{}' not found. Please provision KV v2 at this path.", key);
                 throw new VaultException("Vault mount '" + key + "' not found. Required for secret persistence.");

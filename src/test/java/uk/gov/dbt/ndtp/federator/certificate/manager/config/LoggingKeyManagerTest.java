@@ -84,6 +84,17 @@ class LoggingKeyManagerTest {
     }
 
     @Test
+    void shouldNotLogWhenCertificateChainIsNull() {
+        String alias = "client-cert";
+        when(delegate.chooseClientAlias(any(), any(), any())).thenReturn(alias);
+        when(delegate.getCertificateChain(alias)).thenReturn(null);
+
+        keyManager.chooseClientAlias(new String[] {"RSA"}, null, new Socket());
+
+        assertTrue(logAppender.list.isEmpty());
+    }
+
+    @Test
     void shouldNotLogWhenCertificateChainIsEmpty() {
 
         String alias = "client-cert";

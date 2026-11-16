@@ -9,8 +9,11 @@ package uk.gov.dbt.ndtp.federator.certificate.manager;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.mockStatic;
 
 import org.junit.jupiter.api.Test;
+import org.mockito.MockedStatic;
+import org.springframework.boot.SpringApplication;
 
 class CertificateManagerApplicationTest {
 
@@ -36,5 +39,15 @@ class CertificateManagerApplicationTest {
         // EnableScheduling should be on SchedulingConfig, not the main application class
         assertTrue(!CertificateManagerApplication.class.isAnnotationPresent(
                 org.springframework.scheduling.annotation.EnableScheduling.class));
+    }
+
+    @Test
+    void mainStartsTheSpringApplication() {
+        String[] args = {"--spring.profiles.active=test"};
+        try (MockedStatic<SpringApplication> spring = mockStatic(SpringApplication.class)) {
+            CertificateManagerApplication.main(args);
+
+            spring.verify(() -> SpringApplication.run(CertificateManagerApplication.class, args));
+        }
     }
 }

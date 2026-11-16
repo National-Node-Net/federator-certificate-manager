@@ -7,6 +7,7 @@
 package uk.gov.dbt.ndtp.federator.certificate.manager.service.idp;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
@@ -161,5 +162,13 @@ class OAuth2TokenServiceImplTest {
                 "Failed to obtain OAuth2 token [POST https://example/token, client_id=CLIENT]: "
                         + "HTTP 401 Unauthorized - {\"error\":\"invalid_client\"}",
                 ex.getMessage());
+    }
+
+    @Test
+    void buildRestClient_createsClientBackedByTheGivenHttpClient() {
+        OAuth2TokenServiceImpl service =
+                new OAuth2TokenServiceImpl(mock(MtlsHttpClientBuilder.class), "https://example/token", "CLIENT");
+
+        assertNotNull(service.buildRestClient(mock(CloseableHttpClient.class)));
     }
 }

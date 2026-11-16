@@ -40,6 +40,10 @@ import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.NullAndEmptySource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.InOrder;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
@@ -53,6 +57,7 @@ import uk.gov.dbt.ndtp.federator.certificate.manager.model.dto.SignCertResponseD
 import uk.gov.dbt.ndtp.federator.certificate.manager.service.pki.PkiService;
 import uk.gov.dbt.ndtp.federator.certificate.manager.service.pki.VaultSecretProvider;
 import uk.gov.dbt.ndtp.federator.certificate.manager.service.pki.cryptography.PemUtil;
+import uk.gov.dbt.ndtp.federator.certificate.manager.service.pki.cryptography.TestPkiHierarchy;
 
 @ExtendWith(MockitoExtension.class)
 class CertificateManagerServiceImplTest {
@@ -490,6 +495,7 @@ class CertificateManagerServiceImplTest {
 
         when(vaultSecretProvider.getIntermediateCa()).thenReturn(intPem);
         when(vaultSecretProvider.getCertificate()).thenReturn(nearExpiryPem);
+        when(vaultSecretProvider.getKeyPair()).thenReturn(keyPairDto(kp)); // matching, so renewal is due to expiry
         when(pkiService.createKeyPair(null, 2048)).thenReturn(null);
 
         certificateManagerService.run();
@@ -696,5 +702,111 @@ class CertificateManagerServiceImplTest {
         certificateManagerService.run();
 
         verify(vaultSecretProvider, never()).persistIntermediateCa(any());
+    }
+
+    // --- remaining branches ---
+
+    private void stubSigning(SignCertResponseDTO signed) {
+        CreateKeyResponseDTO keyPair = CreateKeyResponseDTO.builder()
+                .publicKeyPem("pub")
+                .privateKeyPem("priv")
+                .build();
+        when(pkiService.createKeyPair(null, 2048)).thenReturn(keyPair);
+        when(pkiService.createCsr(any())).thenReturn(new CreateCsrResponseDTO("id", "csr-pem"));
+        when(managementNodeService.signCertificate(any())).thenReturn(signed);
+    }
+
+    @Test
+    void run_requestsIntermediateCaWhenStoredValueIsBlank() {
+        when(vaultSecretProvider.getIntermediateCa()).thenReturn("  ");
+        when(managementNodeService.getIntermediateCertificate())
+                .thenReturn(CertificateResponseDTO.builder().build());
+
+        certificateManagerService.run();
+
+        verify(managementNodeService).getIntermediateCertificate();
+    }
+
+    @ParameterizedTest
+    @NullAndEmptySource
+    @ValueSource(strings = {"  "})
+    void isBootstrapCertificate_falseWhenNoBootstrapOidConfigured(String bootstrapOid) throws Exception {
+        certificateProperties.setBootstrapOid(bootstrapOid);
+
+        assertFalse(certificateManagerService.isBootstrapCertificate(
+                createCertWithOtherNameSan("1.3.6.1.4.1.32473.1.1", "bootstrap")));
+    }
+
+    @ParameterizedTest
+    @CsvSource(
+            value = {"null, priv", "pub, null"},
+            nullValues = "null")
+    void renewCertificate_skipsCsrWhenKeyMaterialIncomplete(String publicKey, String privateKey) {
+        when(pkiService.createKeyPair(null, 2048))
+                .thenReturn(CreateKeyResponseDTO.builder()
+                        .publicKeyPem(publicKey)
+                        .privateKeyPem(privateKey)
+                        .build());
+
+        certificateManagerService.renewCertificate();
+
+        verify(pkiService, never()).createCsr(any());
+        verify(managementNodeService, never()).signCertificate(any());
+    }
+
+    @Test
+    void renewCertificate_blankAltNamesGiveNoSans() {
+        certificateProperties.getSubject().setAltNames("  ");
+        stubSigning(SignCertResponseDTO.builder().certificate("cert-pem").build());
+
+        certificateManagerService.renewCertificate();
+
+        verify(pkiService).createCsr(argThat(request -> request.getDnsSans() == null));
+    }
+
+    @Test
+    void renewCertificate_skipsPersistenceWhenSignedCertificateIsNull() {
+        stubSigning(SignCertResponseDTO.builder().build());
+
+        certificateManagerService.renewCertificate();
+
+        verify(vaultSecretProvider, never()).persistKeyPair(any());
+        verify(vaultSecretProvider, never()).persistCertificate(any());
+    }
+
+    @Test
+    void renewCertificate_skipsVerificationWhenStoredIntermediateCaIsBlank() {
+        stubSigning(SignCertResponseDTO.builder().certificate("cert-pem").build());
+        when(vaultSecretProvider.getIntermediateCa()).thenReturn("  ");
+
+        certificateManagerService.renewCertificate();
+
+        verify(vaultSecretProvider).persistCertificate("cert-pem");
+    }
+
+    @Test
+    void renewCertificate_skipsBlankIssuingCaAndEmptyCaChain() {
+        stubSigning(SignCertResponseDTO.builder()
+                .certificate("cert-pem")
+                .issuingCa(" ")
+                .caChain(List.of())
+                .build());
+
+        certificateManagerService.renewCertificate();
+
+        verify(vaultSecretProvider).persistCertificate("cert-pem");
+        verify(vaultSecretProvider, never()).persistIntermediateCa(any());
+        verify(vaultSecretProvider, never()).persistCaChain(any());
+    }
+
+    @Test
+    void renewCertificate_persistsCertificateThatVerifiesAgainstIntermediateCa() {
+        TestPkiHierarchy pki = new TestPkiHierarchy();
+        stubSigning(SignCertResponseDTO.builder().certificate(pki.leaf.pem()).build());
+        when(vaultSecretProvider.getIntermediateCa()).thenReturn(pki.intermediate.pem());
+
+        certificateManagerService.renewCertificate();
+
+        verify(vaultSecretProvider).persistCertificate(pki.leaf.pem());
     }
 }
