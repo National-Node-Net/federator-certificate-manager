@@ -16,11 +16,11 @@ application:
     pki-mount: ${VAULT_PKI_MOUNT:pki-client}
     secret-path: ${VAULT_SECRET_PATH:node-net/client}
   client:
-    key-store: ${MTLS_KEYSTORE_PATH:/home/developer/Downloads/managementNode/docker/keystore.jks}
-    trust-store: ${MTLS_TRUSTSTORE_PATH:/home/developer/Downloads/managementNode/docker/truststore.jks}
+    key-store: ${MTLS_KEYSTORE_PATH:/home/developer/Downloads/managementNode/docker/mtls-keystore.p12}
+    trust-store: ${MTLS_TRUSTSTORE_PATH:/home/developer/Downloads/managementNode/docker/mtls-truststore.p12}
     key-store-password: ${MTLS_KEYSTORE_PASSWORD:changeit}
     trust-store-password: ${MTLS_TRUSTSTORE_PASSWORD:changeit}
-    key-store-type: ${MTLS_KEYSTORE_TYPE:JKS}
+    key-store-type: ${MTLS_KEYSTORE_TYPE:PKCS12}
   oauth2:
     token-uri: ${OAUTH2_TOKEN_URI:https://localhost:8443/realms/mng-node/protocol/openid-connect/token}
     client-id: ${OAUTH2_CLIENT_ID:MANAGEMENT_NODE_CLIENT}
@@ -47,19 +47,29 @@ application:
     intermediate:
       min-valid-days: ${CERT_INTERMEDIATE_MIN_VALID_DAYS:14}
     destination:
-      # Base directory path where all certificate files will be written
-      path: ${CERT_DEST_PATH:/home/developer/test-secrets/}
-      # Filenames for PKCS12 keystore and truststore
-      keystore-file: ${CERT_DEST_KEYSTORE_FILE:keystore.p12}
-      truststore-file: ${CERT_DEST_TRUSTSTORE_FILE:truststore.p12}
-      # Passwords for PKCS12 keystore and truststore (if not set, resolved from Vault or auto-generated)
+      # Passwords for the PKCS12 keystore and truststore, shared by the file and vault destinations.
+      # If not set, they are read from Vault or auto-generated (and saved to Vault for reuse).
+      # Written as keystore.password / truststore.password (files, or attributes of the Vault secret).
       keystore-password: ${CERT_DEST_KEYSTORE_PASSWORD:}
       truststore-password: ${CERT_DEST_TRUSTSTORE_PASSWORD:}
-      # File names for generated passwords (will be stored in the same directory as the keystore/truststore)
-      keystore-password-file: ${CERT_DEST_KEYSTORE_PASSWORD_FILE:keystore.password}
-      truststore-password-file: ${CERT_DEST_TRUSTSTORE_PASSWORD_FILE:truststore.password}
-      # Alias for the identity key in the keystore
-      keystore-alias: ${CERT_DEST_KEYSTORE_ALIAS:federator}
+      # Filesystem destination. Leave path empty to disable.
+      file:
+        # Base directory path where all certificate files will be written
+        path: ${CERT_DEST_PATH:/home/developer/test-secrets/}
+        # Filenames for PKCS12 keystore and truststore
+        keystore-file: ${CERT_DEST_KEYSTORE_FILE:keystore.p12}
+        truststore-file: ${CERT_DEST_TRUSTSTORE_FILE:truststore.p12}
+        # Alias for the identity key in the keystore
+        keystore-alias: ${CERT_DEST_KEYSTORE_ALIAS:federator}
+      # Vault KV v2 destination. Leave path empty to disable.
+      vault:
+        # KV v2 secret path; the first segment is the mount (e.g. /secret/app/federator)
+        path: ${CERT_DEST_VAULT_PATH:/secret/app/cert-manager}
+        # Attribute names within the secret (stores are Base64-encoded PKCS12; passwords use keystore.password / truststore.password)
+        keystore-file: ${CERT_DEST_VAULT_KEYSTORE_FILE:keystore.p12}
+        truststore-file: ${CERT_DEST_VAULT_TRUSTSTORE_FILE:truststore.p12}
+        # Alias for the identity key in the keystore
+        keystore-alias: ${CERT_DEST_VAULT_KEYSTORE_ALIAS:federator}
 
 resilience4j:
   retry:
